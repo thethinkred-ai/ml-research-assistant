@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="description" content="Методологический ассистент: каркас реферата, курсовой и дипломной по методике В. С. Безруковой — актуальность, противоречие, цель, задачи, гипотеза, методы, план глав, титульный лист и черновики через ИИ."/>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23b0181c'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='16' font-weight='bold' fill='%23fff' text-anchor='middle'%3EМ%3C/text%3E%3C/svg%3E"/>
+<title>Методологический ассистент — каркас исследования (марксистско-ленинская методология)</title>
+<style>
+  :root{--fg:#1f2328;--muted:#5b636e;--bg:#f6f7f9;--card:#fff;--line:#e3e6ea;--accent:#e11d2a;--accent-soft:rgba(225,29,42,.08);--ok:#1a7f37;--warn-bg:#fff8e6;--warn-line:#f0ddb0;--warn-fg:#7a5a00}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans",Arial,sans-serif;line-height:1.6;font-size:16px}
+  header{background:linear-gradient(135deg,#8f1215,#e11d2a);color:#fff;padding:26px 20px}
+  header .wrap{max-width:1080px;margin:0 auto}
+  header h1{margin:0 0 6px;font-size:24px;letter-spacing:-.2px}
+  header p{margin:0;opacity:.9;font-size:14px}
+  .layout{max-width:1080px;margin:0 auto;padding:22px 20px 80px;display:grid;grid-template-columns:360px 1fr;gap:22px}
+  @media(max-width:860px){.layout{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .panel{position:sticky;top:16px;align-self:start}
+  @media(max-width:860px){.panel{position:static}}
+  label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px;font-weight:600}
+  input[type=text],select,input[type=number],input[type=password]{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font:inherit;background:#fff}
+  textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font:inherit;min-height:52px;resize:vertical;background:#fff}
+  .row{display:flex;gap:10px}.row>*{flex:1}
+  .checks{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+  .checks label{display:flex;align-items:center;gap:6px;margin:0;font-weight:500;color:var(--fg)}
+  button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:11px 14px}
+  .primary{background:var(--accent);color:#fff;width:100%;margin-top:16px;font-weight:600}
+  .primary:hover{background:#b3141f}
+  .ghost{background:#fff;border:1px solid var(--line);color:var(--fg)}
+  .ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .btns button{flex:1;min-width:110px}
+  .note{background:var(--accent-soft);border:1px solid #f5c2c5;color:#b3141f;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:14px}
+  #out{min-height:120px}
+  #out .empty{color:var(--muted);font-style:italic;padding:30px;text-align:center}
+  h2.sec{font-size:15px;text-transform:uppercase;letter-spacing:.4px;color:var(--accent);margin:22px 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+  h2.sec:first-child{margin-top:0}
+  .kv p{margin:6px 0}
+  .muted{color:var(--muted);font-size:13px}
+  ol,ul{margin:6px 0 6px 20px;padding:0}
+  li{margin:3px 0}
+  pre.md{background:#0f1115;color:#e6edf3;padding:14px;border-radius:10px;overflow:auto;font-size:12.5px;line-height:1.5;white-space:pre-wrap}
+  .srclinks a{color:var(--accent);margin-right:10px}
+  details{margin-top:14px}
+  summary{cursor:pointer;color:var(--muted);font-size:14px}
+  .tabs{display:flex;gap:8px;margin-bottom:6px}
+  .tabs button{background:#fff;border:1px solid var(--line);color:var(--fg);padding:8px 16px;font-weight:600}
+  .tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tabs button:disabled{opacity:.45;cursor:not-allowed}
+  .tabpane{display:none}
+  .tabpane.active{display:block}
+  .tabhint{margin:2px 0 12px}
+  .sec-edit{margin:16px 0}
+  .sec-edit h4{margin:0 0 6px;font-size:14px;color:var(--accent)}
+  .sec-edit textarea{min-height:140px;line-height:1.65;white-space:pre-wrap}
+  .status{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn-fg);border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .status .grow{flex:1}
+  .errbox{background:var(--accent-soft);border:1px solid #f5c2c5;color:#b3141f;border-radius:10px;padding:10px 14px;font-size:13.5px;margin:12px 0}
+  .errbox ul{margin:4px 0 8px 18px}
+  .mdsrc{min-height:320px;font-family:Consolas,Menlo,monospace;font-size:12.5px;line-height:1.55;white-space:pre-wrap}
+  .warnbanner{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn-fg);border-radius:10px;padding:10px 14px;font-size:13.5px;margin:0 0 14px}
+  .glossary dt{font-weight:600;color:var(--accent);margin-top:10px}
+  .glossary dd{margin:0 0 6px}
+  .titlepage-box{margin:0 0 14px}
+  .titlepage-box .tp-form .row{margin-top:8px}
+  .titlepage-box input{font-size:13px;padding:6px 8px}
+  .tp-preview{margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:18px;text-align:center;background:#fff;font-family:Georgia,"Times New Roman",serif}
+  .tp-preview .tp-top{margin:2px 0}
+  .tp-preview .tp-kind{margin:40px 0 8px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+  .tp-preview .tp-topic{font-size:17px;font-weight:600;max-width:520px;margin:0 auto}
+  .tp-preview .tp-right{margin:48px auto 0;text-align:right;max-width:380px;font-size:14px}
+  .tp-preview .tp-bottom{margin-top:56px}
+  .orxblock pre.md{margin-top:10px}
+  .preview{border:1px solid var(--line);border-radius:10px;padding:16px;background:#fff;font-family:Georgia,"Times New Roman",serif;line-height:1.65;max-height:520px;overflow:auto}
+  .preview h1{font-size:22px}.preview h2{font-size:18px;border-bottom:1px solid #ddd;padding-bottom:3px}
+  .preview blockquote{border-left:3px solid var(--accent);margin:8px 0;padding:4px 12px;background:#faf7f2;color:#444}
+  .preview pre{background:#f4f4f4;padding:10px;white-space:pre-wrap;font-size:12.5px}
+  .preview a{color:var(--accent)}
+  footer{max-width:1080px;margin:0 auto;padding:0 20px 40px;color:var(--muted);font-size:13px}
+  @media print{header,.panel,.btns,.note,footer,.tabs,.tabhint,.status,.errbox,#status,.warnbanner{display:none!important}details:not(.titlepage-box){display:none!important}.titlepage-box summary,.titlepage-box .tp-form{display:none!important}.tp-preview{border:0;padding:40px 0}.layout{display:block}.card{border:0}.tabpane{display:none!important}.tabpane.active{display:block!important}#out{color:#000}}
+  .sitebar{background:#fff;border-bottom:1px solid rgba(17,24,39,.08)}
+  .sitebar .in{max-width:1080px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .sitebar .logo{font-weight:800;font-size:20px;text-decoration:none;color:#111118;font-family:Georgia,serif}
+  .sitebar .logo span{color:#e11d2a}
+  .sitebar nav{display:flex;gap:14px;flex-wrap:wrap}
+  .sitebar nav a{color:#4a4a5a;text-decoration:none;font-size:14px}
+  .sitebar nav a:hover{color:#e11d2a}
+  footer{max-width:1080px;margin:0 auto;padding:26px 20px;color:#5b636e;font-size:13.5px;border-top:1px solid var(--line);margin-top:30px}
+  footer a{color:var(--accent)}
+  .bookref{background:var(--accent-soft);border:1px solid #f5c2c5;border-radius:10px;padding:8px 12px;font-size:12.5px;margin:10px 0 4px;color:#b3141f}
+  .bookref a{color:var(--accent);font-weight:600;text-decoration:none;border-bottom:1px dashed}
+</style>
+</head>
+<body>
+<div class="sitebar"><div class="in">
+  <a class="logo" href="https://thinkred.ru/">Think<span>Red</span></a>
+  <nav>
+    <a href="https://thinkred.ru/course/">Курс</a>
+    <a href="https://thinkred.ru/blog/">Блог</a>
+    <a href="https://thinkred.ru/library/bezrukova.html">Библиотека</a>
+    <a href="https://thinkred.ru/game/">Игра</a>
+    <a href="https://t.me/thinkred_marx" target="_blank" rel="noopener">Telegram</a>
+  </nav>
+</div></div>
+
+<header><div class="wrap">
+  <h1>Методологический ассистент</h1>
+  <p>Каркас реферата / курсовой / дипломной по методике В.&nbsp;С.&nbsp;Безруковой · методология — диалектический и исторический материализм</p>
+</div></header>
+
+<div class="layout">
+  <aside class="card panel" id="form">
+    <label for="topic">Тема исследования</label>
+    <input id="topic" type="text" placeholder="напр.: Отчуждение труда в сфере образования" />
+
+    <div class="row">
+      <div><label for="kind">Тип работы</label>
+        <select id="kind">
+          <option value="referat">Реферат</option>
+          <option value="kursovaya">Курсовая</option>
+          <option value="diplom">Дипломная</option>
+        </select></div>
+      <div><label for="vol">Объём, с.</label>
+        <input id="vol" type="number" min="5" max="120" value="30" /></div>
+    </div>
+
+    <label for="field">Область / дисциплина</label>
+    <input id="field" type="text" list="fields" placeholder="педагогика, экономика, философия…" value="педагогика" />
+    <datalist id="fields">
+      <option value="педагогика"></option>
+      <option value="экономика"></option>
+      <option value="философия"></option>
+      <option value="история"></option>
+    </datalist>
+
+    <label for="depth">Глубина развёртывания (для модели)</label>
+    <select id="depth">
+      <option value="0.6">Краткое</option>
+      <option value="1" selected>Обычное</option>
+      <option value="1.3">Подробное</option>
+    </select>
+
+    <label for="extra">Доп. акценты (через запятую)</label>
+    <textarea id="extra" placeholder="напр.: цифровизация, классовый анализ, региональный аспект"></textarea>
+
+    <label for="sources">Свои источники (по одному в строке — попадут в список литературы)</label>
+    <textarea id="sources" placeholder="напр.: Иванов И. И. Название книги. — М., 2020. — 240 с."></textarea>
+
+    <div class="checks">
+      <label><input id="emp" type="checkbox" checked /> эмпирическая часть</label>
+      <label><input id="app" type="checkbox" /> прикладной характер</label>
+    </div>
+
+    <button class="primary" id="gen">Построить каркас</button>
+    <div class="btns">
+      <button class="ghost" id="dl-md">Скачать .md</button>
+      <button class="ghost" id="dl-doc">Скачать .doc</button>
+      <button class="ghost" id="dl-html">Скачать .html</button>
+      <button class="ghost" id="copy">Копировать</button>
+      <button class="ghost" id="print">Печать / PDF</button>
+      <button class="ghost" id="share">Ссылка</button>
+    </div>
+    <p class="muted" style="margin:10px 0 0">Кнопки экспорта действуют на активную вкладку справа.</p>
+
+    <div class="note">Это учебно-методический <b>каркас-черновик</b>. Он задаёт структуру и методологию, но не заменяет ваше исследование. Дорабатывайте и отвечайте за итог — как учит сама книга.</div>
+  </aside>
+
+  <main class="card" id="out">
+    <div class="tabs">
+      <button id="tab-bp" class="active" type="button">Каркас</button>
+      <button id="tab-draft" type="button" disabled title="Станет доступен после развёртывания через модель">Черновик</button>
+    </div>
+    <div id="titlepage"></div>
+    <div id="status"></div>
+    <div class="tabpane active" id="pane-bp"><div class="empty">Заполните тему слева и нажмите «Построить каркас».</div></div>
+    <div class="tabpane" id="pane-draft"></div>
+  </main>
+</div>
+
+<footer>
+  Методика — В.&nbsp;С.&nbsp;Безрукова «Как написать реферат, курсовую, диплом» (2004): <a href="https://thinkred.ru/library/bezrukova.html" target="_blank" rel="noopener">полный текст книги в нашей библиотеке</a> — советы к каждому разделу ссылаются на её главы. Методологическая рамка — ортодоксальный марксизм-ленинизм — задана намеренно и честно помечена в тексте.<br><a href="https://thinkred.ru/">Главная</a> · <a href="https://thinkred.ru/course/">Курсы марксизма</a> · <a href="https://thinkred.ru/blog/">Блог</a> · © ThinkRed · 2026
+  <div style="margin-top:8px"><button class="ghost" id="llm" style="flex:none">Развернуть разделы связным текстом через модель (бесплатно, без ключа)</button></div>
+</footer>
+
+<script src="engine.js?v=4"></script>
+<script src="prompts.js?v=4"></script>
+<script src="llm.js?v=4"></script>
+<script src="export.js?v=4"></script>
+<script src="research.js?v=4"></script>
+<script src="app.js?v=4"></script>
+</body>
+</html>

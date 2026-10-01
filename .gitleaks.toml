@@ -1,0 +1,3 @@
+# Правила по умолчанию gitleaks + проектные исключения
+[extend]
+useDefault = true

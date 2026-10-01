@@ -1,0 +1,39 @@
+# Деплой на VPS — как у caos-platform: только после зелёного CI ("never deploy red builds").
+# Требует secrets: VPS_HOST, VPS_SSH_KEY (пользователь root, ключ с доступом к /opt/ml-assistant).
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Assistant CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH-деплой на VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            set -e
+            cd /opt/ml-assistant
+            git pull origin main
+
+            # БД нет — бэкапы и миграции не нужны (в отличие от caos-platform).
+            docker compose build api frontend
+            docker compose up -d --remove-orphans api frontend
+            sleep 3
+
+            # Health checks: фронт отдаёт страницу, api отвечает (пустой JSON → 400)
+            curl -fsS http://127.0.0.1:8088/ | grep -q "Методологический ассистент"
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://127.0.0.1:8787/api/chat \
+              -H 'Content-Type: application/json' -d '{}')
+            test "$CODE" = "400"
+
+            docker builder prune -f --keep-storage 1GB

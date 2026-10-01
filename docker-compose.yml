@@ -1,0 +1,23 @@
+# Запуск как у caos-platform: docker compose на VPS.
+#   cp .env.example .env   # вписать UPSTREAM_KEY
+#   docker compose up -d --build
+services:
+  api:
+    build: ./backend
+    container_name: ml-assistant-api
+    env_file: .env
+    ports:
+      - "127.0.0.1:8787:8787"   # наружу только через edge-nginx
+    restart: unless-stopped
+
+  frontend:
+    image: nginx:1.27-alpine
+    container_name: ml-assistant-frontend
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./infrastructure/nginx/site.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:8088:80"
+    restart: unless-stopped
+    depends_on:
+      - api

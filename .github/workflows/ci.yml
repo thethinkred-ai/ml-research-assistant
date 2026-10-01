@@ -1,0 +1,38 @@
+name: Assistant CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    name: Тесты (191 проверка)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+
+  lint:
+    name: Синтаксис (node --check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run lint
+
+  secret-scan:
+    name: Gitleaks (секреты)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Установить gitleaks v8.24.3
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz \
+            | tar -xz -C /usr/local/bin gitleaks
+      - name: Сканер секретов
+        run: gitleaks detect --no-git --source . --config .gitleaks.toml --redact
