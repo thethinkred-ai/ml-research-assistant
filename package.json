@@ -1,11 +1,11 @@
 {
   "name": "ml-research-assistant",
-  "version": "1.1.0",
+  "version": "1.3.0",
   "private": true,
   "description": "Методологический ассистент — каркас реферата/курсовой/дипломной по В. С. Безруковой с методологией марксизма-ленинизма (статический SPA + опциональный LLM-прокси)",
   "scripts": {
-    "test": "node tests/test_engine.mjs && node tests/test_llm.mjs && node tests/test_export.mjs && node tests/test_proxy.mjs && node tests/test_research.mjs",
-    "lint": "node --check frontend/engine.js && node --check frontend/prompts.js && node --check frontend/llm.js && node --check frontend/export.js && node --check frontend/research.js && node --check frontend/app.js && node --check backend/proxy.js",
+    "test": "node tests/test_engine.mjs && node tests/test_model.mjs && node tests/test_llm.mjs && node tests/test_export.mjs && node tests/test_proxy.mjs && node tests/test_research.mjs",
+    "lint": "node --check frontend/engine.js && node --check frontend/prompts.js && node --check frontend/llm.js && node --check frontend/export.js && node --check frontend/research-model.js && node --check frontend/research.js && node --check frontend/app.js && node --check backend/proxy.js",
     "start": "node backend/proxy.js"
   },
   "engines": {

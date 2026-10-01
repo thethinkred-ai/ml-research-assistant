@@ -108,5 +108,45 @@ ok(Array.isArray(E.GLOSSARY) && E.GLOSSARY.length >= 15, "глоссарий: н
 ok(E.GLOSSARY.some(g => /Объект исследования/.test(g.term)) && E.GLOSSARY.some(g => /Предмет/.test(g.term)), "глоссарий: ключевые термины");
 ok(E.GLOSSARY.every(g => g.def.length > 30), "глоссарий: все определения содержательны");
 
+// --- V1.2: гипотеза-конструктор вместо универсальной (рецензия п. 9)
+const hyp = E.buildBlueprint({ topic: "Влияние X на Y", kind: "kursovaya", hasEmpirical: true });
+ok(!/рассматривать как противоречивый процесс/.test(hyp.hypothesis), "гипотеза: универсальная формулировка удалена");
+ok(hyp.hypothesis.includes("[X") && hyp.meta.hypX === "", "гипотеза: каркас с плейсхолдерами, части пусты");
+ok(hyp.hypothesisReady === false, "гипотеза не собрана без частей");
+const hypFull = E.buildBlueprint({ topic: "Влияние X на Y", kind: "kursovaya", hasEmpirical: true,
+  hypX: "внедрение тренажёра", hypY: "скорость обучения растёт", hypM: "снижение когнитивной нагрузки", hypC: "равные группы" });
+ok(/^Если внедрение тренажёра, то скорость обучения растёт, поскольку снижение/.test(hypFull.hypothesis), "гипотеза: Если X, то Y, поскольку M");
+ok(hypFull.hypothesisReady === true, "гипотеза собрана");
+
+// --- V1.2: новизна — чеклист + основание, никаких «впервые…» (рецензия п. 8)
+ok(!/впервые.*систематически раскрыт/.test(E.toMarkdown(hyp)), "новизна: автоутверждение «впервые…» удалено");
+ok(hyp.novelty.includes("Новизна не заявляется автоматически") && hyp.novelty.includes("новое понятие"), "новизна: чеклист типов");
+ok(!hyp.noveltyReady, "новизна без основания не готова");
+const novFull = E.buildBlueprint({ topic: "Влияние X на Y", kind: "kursovaya",
+  noveltyTypes: ["explanation", "model"], noveltyBasis: "отличие от Иванова 2020 в механизме" });
+ok(novFull.novelty.includes("новое объяснение") && novFull.novelty.includes("Иванова 2020"), "новизна: типы и основание подставлены");
+ok(novFull.noveltyReady, "новизна с основанием готова");
+ok(Object.keys(E.NOVELTY_TYPES).length === 6, "6 типов новизны");
+
+// --- V1.2: неизвестная дисциплина → общий профиль, не педагогика (рецензия п. 13)
+const unknown = E.buildBlueprint({ topic: "Прагматика заголовков в СМИ", field: "лингвистика" });
+ok(unknown.preset === "общая", "неизвестная дисциплина → общий профиль");
+const nofield = E.buildBlueprint({ topic: "Некая тема без области", field: "" });
+ok(nofield.preset === "общая" && !/педагогика/.test(nofield.object), "пустое поле → общий профиль без педагогики");
+ok(!/\s\s/.test(nofield.subject), "пустое поле не ломает формулировки (двойных пробелов нет)");
+const ped = E.buildBlueprint({ topic: "Тема", field: "педагогика" });
+ok(ped.methods.theoretical.some(t => /педагогическое наблюдение/.test(t)), "профиль педагогики добавляет методы");
+const hist = E.buildBlueprint({ topic: "Тема", field: "история" });
+ok(hist.methods.theoretical.some(t => /источниковедческая критика/.test(t)), "профиль истории: источниковедческая критика");
+
+// --- V1.3: тип исследования отделён от формата работы (рецензия п. 14)
+ok(E.buildBlueprint({ topic: "Т", kind: "referat" }).researchTypeLabel === "обзор литературы", "реферат → обзор литературы по умолчанию");
+const cmp = E.buildBlueprint({ topic: "Т", kind: "diplom", researchType: "comparative" });
+ok(cmp.researchTypeLabel === "сравнительное", "тип исследования переопределяется");
+
+// --- V1.3: исследовательские вопросы до аппарата (рецензия п. 1–2)
+ok(hyp.questions.length >= 3 && hyp.questions.every(q => q.includes("?")), "вопросы-черновики сгенерированы");
+ok(E.toMarkdown(hyp).includes("Исследовательские вопросы"), "вопросы в markdown");
+
 console.log("\n==== RESULT: pass=" + pass + " fail=" + fail + " ====");
 process.exit(fail ? 1 : 0);

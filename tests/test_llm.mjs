@@ -20,6 +20,23 @@ ok(/материализм|диалектическ/i.test(P.SYSTEM), "system ha
 ok(tasks.some(t => /Введение/.test(t.title)), "has intro");
 ok(tasks.some(t => /Заключение/.test(t.title)), "has conclusion");
 
+// 1b) исследовательские режимы (рецензия V1.2/V1.4)
+ok(/методолог-исследователь/.test(P.MODE_SYSTEM) && /Не|не/.test(P.MODE_SYSTEM), "MODE_SYSTEM: аналитическая установка");
+const ex = P.explorePrompt(bp);
+ok(/режим Explore/.test(ex) && ex.includes("Отчуждение труда"), "explore: карта темы по теме работы");
+const vf = P.verifyPrompt({ text: "X влияет на Y", type: "эмпирическое" });
+ok(/режим Verify/.test(vf) && vf.includes("X влияет на Y") && /РЕКОМЕНДАЦИЯ/.test(vf), "verify: формат проверки");
+const cp = P.comparePrompt(bp, "Маркс, Вебер");
+ok(/режим Compare/.test(cp) && cp.includes("Маркс, Вебер") && /\| Критерий/.test(cp), "compare: матрица");
+const cr = P.critiquePrompt("Текст для критики.", bp);
+ok(/режим Critic/.test(cr) && /корреляции и причинности/.test(cr) && cr.includes("Текст для критики."), "critic: таксономия ошибок");
+const ma = P.marxistAuditPrompt("Текст.", bp);
+ok(/категориальную экспертизу/.test(ma) && /трудовой теории стоимости/.test(ma), "марксистская экспертиза");
+// автоновизны больше нет в задачах без основания
+const bpNoNov = E.buildBlueprint({ topic: "Т", kind: "referat" });
+const tasksNoNov = P.buildTasks(bpNoNov, 100);
+ok(!/новизна \(/.test(tasksNoNov[tasksNoNov.length-1].prompt), "заключение без основания не утверждает новизну");
+
 // 2) прокси-режим: без ключа запрос уходит (ключ подставит сервер), пустой Authorization не отправляется
 let noKeyCap = null;
 const noKeyFetch = (url, init) => {

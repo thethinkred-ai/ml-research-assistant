@@ -91,6 +91,12 @@
   footer a{color:var(--accent)}
   .bookref{background:var(--accent-soft);border:1px solid #f5c2c5;border-radius:10px;padding:8px 12px;font-size:12.5px;margin:10px 0 4px;color:#b3141f}
   .bookref a{color:var(--accent);font-weight:600;text-decoration:none;border-bottom:1px dashed}
+  .compl{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--accent);border:1px solid var(--line);border-radius:20px;padding:4px 12px;background:#fff;cursor:help}
+  #pane-claims textarea{min-height:0;margin-top:4px}
+  #pane-claims input[type=text]{font-size:13.5px}
+  #pane-claims select{font-size:13px;padding:6px 8px}
+  #pane-claims h4{margin:0;font-size:13px;color:var(--accent)}
+  .sec-edit{margin:16px 0}
 </style>
 </head>
 <body>
@@ -127,13 +133,25 @@
     </div>
 
     <label for="field">Область / дисциплина</label>
-    <input id="field" type="text" list="fields" placeholder="педагогика, экономика, философия…" value="педагогика" />
+    <input id="field" type="text" list="fields" placeholder="педагогика, экономика, философия, история…" />
     <datalist id="fields">
       <option value="педагогика"></option>
       <option value="экономика"></option>
       <option value="философия"></option>
       <option value="история"></option>
     </datalist>
+
+    <label for="rtype">Тип исследования</label>
+    <select id="rtype">
+      <option value="">— по типу работы —</option>
+      <option value="literature_review">обзор литературы</option>
+      <option value="theoretical">теоретическое</option>
+      <option value="empirical">эмпирическое</option>
+      <option value="historical">историческое</option>
+      <option value="comparative">сравнительное</option>
+      <option value="applied">прикладное</option>
+      <option value="mixed">комбинированное</option>
+    </select>
 
     <label for="depth">Глубина развёртывания (для модели)</label>
     <select id="depth">
@@ -170,11 +188,14 @@
   <main class="card" id="out">
     <div class="tabs">
       <button id="tab-bp" class="active" type="button">Каркас</button>
+      <button id="tab-claims" type="button" title="Реестр утверждений и источников, линтер, режимы Explore/Compare">Утверждения</button>
       <button id="tab-draft" type="button" disabled title="Станет доступен после развёртывания через модель">Черновик</button>
+      <span class="compl" id="compl" style="display:none"></span>
     </div>
     <div id="titlepage"></div>
     <div id="status"></div>
     <div class="tabpane active" id="pane-bp"><div class="empty">Заполните тему слева и нажмите «Построить каркас».</div></div>
+    <div class="tabpane" id="pane-claims"><div class="empty">Постройте каркас — здесь появится реестр утверждений и источников.</div></div>
     <div class="tabpane" id="pane-draft"></div>
   </main>
 </div>
@@ -184,11 +205,12 @@
   <div style="margin-top:8px"><button class="ghost" id="llm" style="flex:none">Развернуть разделы связным текстом через модель (бесплатно, без ключа)</button></div>
 </footer>
 
-<script src="engine.js?v=4"></script>
-<script src="prompts.js?v=4"></script>
-<script src="llm.js?v=4"></script>
-<script src="export.js?v=4"></script>
-<script src="research.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="engine.js?v=5"></script>
+<script src="prompts.js?v=5"></script>
+<script src="llm.js?v=5"></script>
+<script src="export.js?v=5"></script>
+<script src="research-model.js?v=5"></script>
+<script src="research.js?v=5"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
