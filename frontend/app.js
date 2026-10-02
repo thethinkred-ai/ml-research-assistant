@@ -53,27 +53,29 @@
     };
   }
 
-  function saveForm() {
-    try {
-      var f = {};
-      FORM_IDS.forEach(function (id) {
-        var el = $(id);
-        f[id] = el.type === "checkbox" ? el.checked : el.value;
-      });
-      localStorage.setItem("ml_form", JSON.stringify(f));
-    } catch (e) { /* приватный режим и т.п. */ }
+  function formSnapshot() {
+    var f = {};
+    FORM_IDS.forEach(function (id) {
+      var el = $(id);
+      if (!el) return;
+      f[id] = el.type === "checkbox" ? el.checked : el.value;
+    });
+    return f;
   }
 
-  function restoreForm() {
-    try {
-      var f = JSON.parse(localStorage.getItem("ml_form") || "{}");
-      FORM_IDS.forEach(function (id) {
-        if (!(id in f)) return;
-        var el = $(id);
-        if (!el) return; // поля конструкторов появляются после первой генерации
-        if (el.type === "checkbox") el.checked = !!f[id]; else el.value = f[id];
-      });
-    } catch (e) { /* ignore */ }
+  function saveForm() {
+    try { localStorage.setItem("ml_form", JSON.stringify(formSnapshot())); }
+    catch (e) { /* приватный режим и т.п. */ }
+  }
+
+  function applyForm(f) {
+    if (!f) return;
+    FORM_IDS.forEach(function (id) {
+      if (!(id in f)) return;
+      var el = $(id);
+      if (!el) return; // поля конструкторов появляются после первой генерации
+      if (el.type === "checkbox") el.checked = !!f[id]; else el.value = f[id];
+    });
   }
 
   function buildShareUrl() {
@@ -407,8 +409,11 @@
         return '<li><b>' + esc(s.id) + '</b>. ' + esc([s.author, s.title, s.year ? "(" + s.year + ")" : ""].filter(Boolean).join(" ")) +
           (s.doi ? ' · doi:' + esc(s.doi) : '') + (s.url ? ' · <a href="' + esc(s.url) + '" target="_blank" rel="noopener">ссылка</a>' : '') +
           ' · надёжность: ' + esc(s.reliability) + (M.sourceResolved(s) ? '' : ' · <span style="color:var(--accent)">[не резолвится]</span>') +
+          (s.resolved && s.resolvedMeta ? '<br><span class="muted">✅ Crossref: ' + esc(M.gostLine(Object.assign({}, s, s.resolvedMeta))) + '</span>' : '') +
+          ' <button class="ghost" data-resolve="' + esc(s.id) + '" style="padding:1px 8px;font-size:12px" title="Проверить по Crossref и нормализовать запись">Резолвить</button>' +
           ' <button class="ghost" data-delsrc="' + esc(s.id) + '" style="padding:1px 8px;font-size:12px">✕</button></li>';
-      }).join('') + '</ol>';
+      }).join('') + '</ol>' +
+        '<p class="muted">Резолвер проверяет DOI/название по Crossref и нормализует запись (русские источники там редки — «не найдено» не ошибка). Если CSP сайта станет enforcing, добавьте api.crossref.org в connect-src.</p>';
     } else {
       h += '<p class="muted">Источников пока нет. Модель запрещено доверять библиографию — добавляйте только проверенные вами.</p>';
     }
@@ -487,6 +492,7 @@
 
     h += '<details style="margin-top:14px"><summary>Реестр в Markdown (входит в экспорт и research-бриф)</summary><pre class="md">' +
       esc(M.toMarkdown(mod) || "_(пусто)_") + '</pre></details>';
+    h += renderVersions();
     h += '<div id="mode-result"></div>';
     $("pane-claims").innerHTML = h;
     bindClaims();
@@ -494,10 +500,10 @@
   }
 
   function bindClaims() {
-    var mod = state.model;
-
+    // Прямые onclick по id — безопасно при каждом рендере (элементы пересоздаются).
+    // Делегированные слушатели pane-claims навешиваются один раз в init (см. ниже).
     $("src_add").onclick = function () {
-      var s = M.addSource(mod, {
+      var s = M.addSource(state.model, {
         title: val("src_title"), author: val("src_author"), year: val("src_year"),
         url: val("src_url"), doi: val("src_doi"), type: val("src_type"), reliability: val("src_rel")
       });
@@ -505,16 +511,20 @@
       saveModel(); renderClaims();
     };
     $("clm_add").onclick = function () {
-      var c = M.addClaim(mod, { text: val("clm_text"), type: val("clm_type") });
+      var c = M.addClaim(state.model, { text: val("clm_text"), type: val("clm_type") });
       if (!c) { alert("Текст утверждения обязателен."); return; }
       saveModel(); renderClaims();
     };
     $("mode-explore").onclick = function () { runMode(P.explorePrompt(state.bp)); };
     $("mode-compare").onclick = function () { runMode(P.comparePrompt(state.bp, window.prompt("Кого сравнить (через запятую)?", "Маркс, Вебер, современный автор") || "")); };
+  }
 
+  // Делегированные слушатели pane-claims — навешиваются ровно один раз (иначе каждый
+  // renderClaims добавляет копию и один клик порождает несколько действий).
+  function bindClaimsOnce() {
     $("pane-claims").addEventListener("input", function (e) {
-      var t = e.target;
-      if (t.tagName !== "TEXTAREA" && t.tagName !== "INPUT") return;
+      var t = e.target, mod = state.model;
+      if (t.tagName !== "TEXTAREA" && t.tagName !== "INPUT" || !mod) return;
       if (t.dataset.note) {
         var np = t.dataset.note.split(":");
         var patch = {}; patch[np[1]] = t.value;
@@ -526,7 +536,8 @@
       if (t.dataset.claimEv) { M.updateClaim(mod, t.dataset.claimEv, { evidence: t.value }); saveModel(); }
     });
     $("pane-claims").addEventListener("change", function (e) {
-      var t = e.target;
+      var t = e.target, mod = state.model;
+      if (!mod) return;
       if (t.dataset && t.dataset.sr !== undefined && t.dataset.sr !== "") {
         M.updateSelfReview(mod, Number(t.dataset.sr), t.checked);
         saveModel();
@@ -548,14 +559,52 @@
     });
     $("pane-claims").addEventListener("click", function (e) {
       var t = e.target.closest("button");
-      if (!t) return;
-      if (t.dataset.delsrc) { M.removeSource(mod, t.dataset.delsrc); saveModel(); renderClaims(); }
-      if (t.dataset.delclaim) { M.removeClaim(mod, t.dataset.delclaim); saveModel(); renderClaims(); }
+      if (!t || !state.model) return;
+      if (t.dataset.delsrc) { M.removeSource(state.model, t.dataset.delsrc); saveModel(); renderClaims(); }
+      if (t.dataset.resolve) runResolve(t.dataset.resolve);
+      if (t.dataset.restore) restoreVersion(Number(t.dataset.restore));
+      if (t.id === "ver_add") { addVersion("зафиксирована вручную"); renderClaims(); }
+      if (t.id === "ver_chlog") {
+        download(safeFile(state.bp) + "_versions.md", versionsChangelog(), "text/markdown;charset=utf-8");
+      }
+      if (t.dataset.delclaim) { M.removeClaim(state.model, t.dataset.delclaim); saveModel(); renderClaims(); }
       if (t.dataset.verify) {
-        var c = mod.claims.filter(function (x) { return x.id === t.dataset.verify; })[0];
+        var c = state.model.claims.filter(function (x) { return x.id === t.dataset.verify; })[0];
         if (c) runMode(P.verifyPrompt({ text: c.id + " «" + c.text + "»", type: M.CLAIM_TYPES[c.type].label }));
       }
     });
+  }
+
+  // Source resolver: проверка записи по Crossref (DOI напрямую или библиографический поиск).
+  function runResolve(id) {
+    var s = state.model.sources.filter(function (x) { return x.id === id; })[0];
+    if (!s) return;
+    var box = $("mode-result");
+    if (box) box.innerHTML = '<div class="status"><span class="grow" id="status-text">Резолвим ' + esc(id) + ' через Crossref…</span></div>';
+    var q = s.doi
+      ? "https://api.crossref.org/works/" + encodeURIComponent(s.doi)
+      : "https://api.crossref.org/works?rows=3&query.bibliographic=" + encodeURIComponent((s.title + " " + (s.author || "")).trim());
+    fetch(q)
+      .then(function (r) { if (!r.ok) throw new Error("Crossref " + r.status); return r.json(); })
+      .then(function (d) {
+        var it = d && d.message && d.message.items ? d.message.items[0] : (d && d.message);
+        var meta = M.parseCrossrefItem(it);
+        if (!meta || !meta.title) throw new Error("Crossref ничего не нашёл — «не найдено» не ошибка для русскоязычных источников");
+        M.updateSource(state.model, id, {
+          title: meta.title, author: meta.author || s.author, year: meta.year || s.year,
+          url: meta.url || s.url, doi: meta.doi || s.doi, resolved: true, resolvedMeta: meta
+        });
+        saveModel();
+        renderClaims();
+        var box2 = $("mode-result");
+        if (box2) box2.innerHTML = '<div class="errbox" style="background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-fg)">✅ ' +
+          esc(id) + ' резолвится: ' + esc(M.gostLine(Object.assign({}, state.model.sources.filter(function (x) { return x.id === id; })[0], meta))) +
+          ' — проверьте совпадение с вашим источником.</div>';
+      })
+      .catch(function (e) {
+        var box3 = $("mode-result");
+        if (box3) box3.innerHTML = '<div class="errbox">Резолвер: ' + esc(String(e && e.message || e)) + '.</div>';
+      });
   }
 
   // ---------- исследовательские режимы LLM (одноразовые запросы) ----------
@@ -586,6 +635,93 @@
         state.modeCtrl = null;
         box.innerHTML = '<div class="errbox">Ошибка режима: ' + esc((e && e.message) || e.code || String(e)) + '</div>';
       });
+  }
+
+  // ---------- версии исследования (v0.1 → v1.0) ----------
+
+  function listVersions() {
+    try { return JSON.parse(localStorage.getItem("ml_versions_v1") || "[]"); }
+    catch (e) { return []; }
+  }
+
+  function addVersion(label) {
+    var vs = listVersions();
+    var filled = 0, total = state.tasks ? state.tasks.length : 0;
+    if (state.sections && total) state.tasks.forEach(function (t) { if (state.sections[t.key]) filled++; });
+    var v = {
+      n: vs.length + 1, ts: Date.now(), label: label || "",
+      form: formSnapshot(),
+      model: M.serialize(state.model || M.emptyModel()),
+      sections: state.sections || null,
+      words: state.words,
+      questions: state.questionsEdited ? state.customQuestions : null
+    };
+    vs.push(v);
+    try { localStorage.setItem("ml_versions_v1", JSON.stringify(vs.slice(-30))); } catch (e) { return null; }
+    return v.n;
+  }
+
+  function restoreVersion(n) {
+    var v = listVersions().filter(function (x) { return x.n === n; })[0];
+    if (!v) return;
+    applyForm(v.form);      // базовые поля
+    generate();             // после первой генерации появляются поля конструкторов
+    applyForm(v.form);      // конструкторы (гипотеза/противоречие/новизна)
+    generate();             // каркас из восстановленных значений
+    if (v.questions) { state.customQuestions = v.questions; state.questionsEdited = true; }
+    else { state.customQuestions = null; state.questionsEdited = false; }
+    if (state.model) saveModel();
+    state.model = M.deserialize(v.model);
+    saveModel();
+    if (v.sections) {
+      state.words = v.words || state.words;
+      state.tasks = P.buildTasks(state.bp, state.words);
+      state.sections = v.sections;
+      updateDraftTab();
+      renderDraft();
+    } else {
+      state.sections = null; state.tasks = null;
+      updateDraftTab();
+    }
+    renderBlueprint();
+    renderClaims();
+    updateCompleteness();
+    setActiveTab("bp");
+  }
+
+  function renderVersions() {
+    var vs = listVersions();
+    var h = '<h2 class="sec">Версии исследования</h2><div class="kv">' +
+      '<p class="muted">Снимок всего состояния (форма, аппарат, реестр, черновик). Автоверсия создаётся перед Writer→Critic→Revision, чтобы любую правку можно было откатить.</p>' +
+      '<div class="btns"><button class="ghost" id="ver_add" style="flex:none">Зафиксировать версию (v0.' + (vs.length + 1) + ')</button>' +
+      (vs.length ? '<button class="ghost" id="ver_chlog" style="flex:none">Скачать changelog .md</button>' : '') + '</div>';
+    if (vs.length) {
+      h += '<ul>' + vs.slice().reverse().map(function (v) {
+        var d = new Date(v.ts);
+        return '<li><b>v0.' + v.n + '</b> — ' + d.toLocaleDateString("ru") + " " + d.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }) +
+          (v.label ? " — " + esc(v.label) : "") +
+          ' <button class="ghost" data-restore="' + v.n + '" style="padding:1px 8px;font-size:12px">Восстановить</button></li>';
+      }).join('') + '</ul>';
+    }
+    h += '</div><div id="ver-result"></div>';
+    return h;
+  }
+
+  function versionsChangelog() {
+    var vs = listVersions();
+    var L = ["# История версий исследования «" + (state.bp ? state.bp.meta.topic : "") + "»", ""];
+    vs.forEach(function (v) {
+      var mod = M.deserialize(v.model);
+      var d = new Date(v.ts);
+      var secs = v.sections ? Object.keys(v.sections).filter(function (k) { return v.sections[k]; }).length : 0;
+      L.push("- **v0." + v.n + "** — " + d.toLocaleDateString("ru") + " " + d.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }) +
+        (v.label ? " — " + v.label : "") +
+        " — утверждений: " + mod.claims.length + ", источников: " + mod.sources.length +
+        ", секций черновика: " + secs);
+    });
+    L.push("");
+    L.push("Правило трассировки: вывод в тексте → CLM-… → SRC-… → версия исследования.");
+    return L.join("\n");
   }
 
   // ---------- вкладки ----------
@@ -745,6 +881,7 @@
       (withCancel ? '<button class="ghost" id="cancel" style="flex:none;padding:6px 12px">Отмена</button>' : '');
     if (withCancel) $("cancel").onclick = function () {
       if (state.ctrl) state.ctrl.abort();
+      if (state.pipeCtrl) state.pipeCtrl.abort();
       setStatusText("Отменяем…");
     };
   }
@@ -767,9 +904,11 @@
 
   function renderDraft() {
     renderDraftInner();
+    // Вставка через insertAdjacentHTML: перезапись innerHTML пересоздала бы элементы
+    // и стёрла назначенные в renderDraftInner onclick (pipeline, critic и др.).
     var d = $("pane-draft");
     var banner = '<div class="bookref" style="margin-bottom:12px">📖 Пишете текст? В книге Безруковой: <a href="' + BOOK_DIR + 'b04-glava-3.html#3-6-написание-текста" target="_blank" rel="noopener">§&nbsp;3.6 «Написание текста»</a> · <a href="' + BOOK_DIR + 'b04-glava-3.html#3-3-заключение-исследования" target="_blank" rel="noopener">§&nbsp;3.3 «Заключение»</a> · <a href="' + BOOK_DIR + 'b09-glava-8.html" target="_blank" rel="noopener">глава 8 «Оформление»</a></div>';
-    if (d.innerHTML && d.innerHTML.indexOf("bookref") < 0) d.innerHTML = banner + d.innerHTML;
+    if (d.innerHTML && d.innerHTML.indexOf("bookref") < 0) d.insertAdjacentHTML("afterbegin", banner);
   }
   function renderDraftInner() {
     if (!state.bp || !state.tasks) { $("pane-draft").innerHTML = ""; return; }
@@ -784,7 +923,9 @@
     h += '<details><summary>Предпросмотр черновика</summary><div class="preview" id="draft-preview"></div></details>';
     h += '<div class="btns" style="margin-top:10px">' +
       '<button class="ghost" id="mode-critic">Critic — критика текста</button>' +
-      '<button class="ghost" id="mode-marx">Марксистская экспертиза категорий</button></div>';
+      '<button class="ghost" id="mode-marx">Марксистская экспертиза категорий</button>' +
+      '<button class="ghost" id="pipeline">Доработать черновик (Critic→Revision)</button></div>';
+    h += '<p class="muted" id="pipeline-hint" style="margin-top:0">Пайплайн прогоняет каждую секцию через критику и правку; перед стартом создаётся автоверсия — откат в «Версиях исследования».</p>';
     h += '<div id="draft-mode-result"></div>';
     var n = emptySections();
     if (state.errors.length) {
@@ -809,16 +950,62 @@
         if (det.open) pv.innerHTML = X.mdToHtml(L.assembleMarkdown(state.bp, state.sections));
       });
     }
-    var mc = $("mode-critic"), mm = $("mode-marx");
+    var mc = $("mode-critic"), mm = $("mode-marx"), pp = $("pipeline");
     if (mc) mc.onclick = function () {
       runMode(P.critiquePrompt(L.assembleMarkdown(state.bp, state.sections), state.bp), "draft-mode-result");
     };
     if (mm) mm.onclick = function () {
       runMode(P.marxistAuditPrompt(L.assembleMarkdown(state.bp, state.sections), state.bp), "draft-mode-result");
     };
+    if (pp) pp.onclick = runPipeline;
+  }
+
+  // Writer→Critic→Revision: каждую секцию черновика прогоняем через критику и правку.
+  // Перед стартом — автоверсия (откат в «Версиях исследования»).
+  function runPipeline() {
+    if (!state.sections || !state.tasks) { alert("Сначала разверните черновик через модель."); return; }
+    addVersion("авто: перед Critic→Revision");
+    if (state.pipeCtrl) { try { state.pipeCtrl.abort(); } catch (e) { /* ignore */ } }
+    var ctrl = (typeof AbortController === "function") ? new AbortController() : null;
+    state.pipeCtrl = ctrl;
+    var fixable = state.tasks.filter(function (t) { return state.sections[t.key]; });
+    var i = 0, fixed = 0, fails = 0, cancelled = false;
+    function step() {
+      if (i >= fixable.length) return finish();
+      var t = fixable[i];
+      var text = state.sections[t.key];
+      showStatus("Пайплайн: критика «" + t.title + "» (" + (i + 1) + "/" + fixable.length + ")", true);
+      return L.chat(
+        [{ role: "system", content: P.MODE_SYSTEM }, { role: "user", content: P.critiquePrompt(text, state.bp) }],
+        activeCfg(), null, { signal: ctrl ? ctrl.signal : null }
+      ).then(function (cr) {
+        showStatus("Пайплайн: правка «" + t.title + "» (" + (i + 1) + "/" + fixable.length + ")", true);
+        return L.chat(
+          [{ role: "system", content: P.MODE_SYSTEM }, { role: "user", content: P.revisionPrompt(t.title, text, cr, state.bp) }],
+          activeCfg(), null, { signal: ctrl ? ctrl.signal : null }
+        ).then(function (rev) { state.sections[t.key] = rev; fixed++; });
+      }).catch(function (e) {
+        if (e && e.code === "CANCELLED") cancelled = true;
+        else fails++;
+      }).then(function () {
+        i++;
+        if (cancelled) { i = fixable.length; } // прекращаем очередь
+        step();
+      });
+    }
+    function finish() {
+      state.pipeCtrl = null;
+      var msg = cancelled ? "Пайплайн остановлен: правок " + fixed + " из " + fixable.length + "."
+        : (fails ? "Пайплайн готов с ошибками: правок " + fixed + ", сбоев " + fails + "." : "Пайплайн готов: правок " + fixed + "/" + fixable.length + ".");
+      showStatus(msg + " Предыдущее состояние — в «Версиях исследования».", false);
+      renderDraft();
+      updateCompleteness();
+    }
+    step();
   }
 
   $("llm").addEventListener("click", openSettings);
+  bindClaimsOnce();
 
   // правки секций черновика пишутся прямо в state (делегирование, один слушатель)
   $("pane-draft").addEventListener("input", function (e) {
@@ -866,7 +1053,7 @@
 
   state.title = loadTitle();
   state.model = loadModel();
-  restoreForm();
+  try { applyForm(JSON.parse(localStorage.getItem("ml_form") || "{}")); } catch (e) { /* ignore */ }
   try {
     var q = new URLSearchParams(location.search);
     var hasQuery = false;

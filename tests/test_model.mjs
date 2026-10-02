@@ -130,5 +130,39 @@ ok(md3.includes("Конспекты источников") && md3.includes("Ос
 ok(md3.includes("Самоэкспертиза") && md3.includes("✅"), "md: самоэкспертиза");
 ok(md3.includes("прогноз → результат") && md3.includes("подтверждено"), "md: прогноз→результат");
 
+// 15) v1.5: updateSource — резолвер патчит поля и мету
+const m4 = M.emptyModel();
+M.addSource(m4, { title: "Черновик записи" });
+const upd = M.updateSource(m4, "SRC-001", {
+  title: "Нормализованное название", year: "2024", doi: "10.1038/nature12373",
+  resolved: true, resolvedMeta: { title: "Нормализованное название", container: "Nature" }
+});
+ok(upd.title === "Нормализованное название" && upd.year === "2024", "updateSource: поля заменены");
+ok(upd.resolved === true && upd.resolvedMeta.container === "Nature", "updateSource: resolved-мета");
+ok(M.updateSource(m4, "SRC-999", { title: "x" }) === null, "updateSource: нет источника → null");
+ok(M.updateSource(m4, "SRC-001", { junk: "x" }).junk === undefined, "updateSource: чужие поля отброшены");
+
+// 16) v1.5: parseCrossrefItem — нормализация записи Crossref
+const cr = M.parseCrossrefItem({
+  title: ["Some Title of the Work"],
+  author: [{ family: "Иванов", given: "И. И." }, { family: "Petrov" }],
+  issued: { "date-parts": [[2023, 5]] },
+  DOI: "10.1038/nature12373",
+  URL: "https://doi.org/10.1038/nature12373",
+  "container-title": ["Nature"]
+});
+ok(cr.title === "Some Title of the Work", "crossref: title");
+ok(cr.author === "Иванов И. И., Petrov", "crossref: авторы из family+given");
+ok(cr.year === "2023", "crossref: год из issued");
+ok(cr.doi === "10.1038/nature12373" && cr.container === "Nature", "crossref: doi и журнал");
+ok(M.parseCrossrefItem(null) === null, "crossref: null-safe");
+ok(M.parseCrossrefItem({}).title === "", "crossref: пустая запись → пустые поля");
+
+// 17) v1.5: gostLine — библиографическая строка
+ok(M.gostLine({ author: "Иванов И. И.", title: "Труд", container: "Наука", year: "2020", doi: "10.1/x" })
+  === "Иванов И. И. Труд // Наука — 2020. doi:10.1/x", "gost: полный набор");
+ok(M.gostLine({ title: "Только название" }) === "Только название", "gost: минимум");
+ok(M.gostLine({ title: "T", url: "https://x.y" }).includes("URL: https://x.y"), "gost: url вместо doi");
+
 console.log("\n==== MODEL RESULT: pass=" + pass + " fail=" + fail + " ====");
 process.exit(fail?1:0);

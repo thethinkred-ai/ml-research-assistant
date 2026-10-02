@@ -190,11 +190,22 @@
       "Не выдумывай данные; непроверяемое помечай [источник].\n\n" + facts(bp);
   }
 
+  // Revision: исправление текста по замечаниям Critic (Writer→Critic→Revision).
+  function revisionPrompt(title, text, critique, bp) {
+    return "Исправь текст «" + title + "» по замечаниям критика (режим Revision):\n\n" +
+      "ЗАМЕЧАНИЯ КРИТИКА:\n" + critique + "\n\n" +
+      "Правила: исправь каждое воспроизводимое замечание; не выдумывай данные и источники " +
+      "(непроверенное помечай [источник]); сохраняй примерно исходный объём; научный стиль, " +
+      "марксистско-ленинская методология; верни только исправленный текст, без заголовка и пояснений.\n\n" +
+      "ИСХОДНЫЙ ТЕКСТ:\n\n" + text + (bp ? "\n\nКОНТЕКСТ:\n" + facts(bp) : "");
+  }
+
   return {
     SYSTEM: SYSTEM, MODE_SYSTEM: MODE_SYSTEM, CRITIC_TAXONOMY: CRITIC_TAXONOMY,
     buildTasks: buildTasks, facts: facts,
     explorePrompt: explorePrompt, verifyPrompt: verifyPrompt, comparePrompt: comparePrompt,
     critiquePrompt: critiquePrompt, marxistAuditPrompt: marxistAuditPrompt,
-    contradictionHintPrompt: contradictionHintPrompt, outcomeComparePrompt: outcomeComparePrompt
+    contradictionHintPrompt: contradictionHintPrompt, outcomeComparePrompt: outcomeComparePrompt,
+    revisionPrompt: revisionPrompt
   };
 });

@@ -38,6 +38,8 @@ const ch = P.contradictionHintPrompt(bp);
 ok(/заказ/i.test(ch) && /слабое звено/.test(ch) && ch.includes("Отчуждение труда"), "подсказка противоречия: заказ→звенья");
 const oc = P.outcomeComparePrompt(bp, { noveltyActual: "модель подтвердилась", significanceActual: "" });
 ok(/ПРОГНОЗ НОВИЗНЫ/.test(oc) && oc.includes("модель подтвердилась") && /без слова «впервые»/.test(oc), "сопоставление прогноз/результат");
+const rv = P.revisionPrompt("1.1. Тест", "Исходный текст параграфа.", "- квантор «всегда»", bp);
+ok(/режим Revision/.test(rv) && rv.includes("квантор «всегда»") && rv.includes("Исходный текст параграфа"), "revision: замечания + исходный текст");
 // автоновизны больше нет в задачах без основания
 const bpNoNov = E.buildBlueprint({ topic: "Т", kind: "referat" });
 const tasksNoNov = P.buildTasks(bpNoNov, 100);

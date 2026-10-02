@@ -116,6 +116,46 @@
     return NOTE_FIELDS.slice(0, 8).some(function (k) { return (s.notes[k] || "").trim().length > 0; });
   }
 
+  function updateSource(m, id, patch) {
+    var s = m.sources.filter(function (x) { return x.id === id; })[0];
+    if (!s) return null;
+    ["title", "author", "year", "type", "url", "doi", "reliability"].forEach(function (k) {
+      if (patch && typeof patch[k] === "string") s[k] = patch[k].trim();
+    });
+    if (patch && patch.resolved !== undefined) s.resolved = !!patch.resolved;
+    if (patch && patch.resolvedMeta) s.resolvedMeta = patch.resolvedMeta;
+    return s;
+  }
+
+  // Нормализация записи Crossref → поля источника (для source resolver).
+  function parseCrossrefItem(it) {
+    if (!it) return null;
+    var title = Array.isArray(it.title) ? it.title[0] : (it.title || "");
+    var author = Array.isArray(it.author)
+      ? it.author.map(function (a) { return [a.family, a.given].filter(Boolean).join(" "); }).filter(Boolean).join(", ")
+      : "";
+    var year = "";
+    if (it.issued && it.issued["date-parts"] && it.issued["date-parts"][0]) {
+      year = String(it.issued["date-parts"][0][0] || "");
+    }
+    var container = Array.isArray(it["container-title"]) ? (it["container-title"][0] || "") : "";
+    return {
+      title: String(title).trim(), author: author, year: year,
+      doi: String(it.DOI || "").trim(), url: String(it.URL || "").trim(), container: container
+    };
+  }
+
+  // Библиографическая строка по ГОСТ Р 7.0.5 (грубая, из полей источника).
+  function gostLine(s) {
+    var parts = [s.author, s.title];
+    if (s.container) parts.push("// " + s.container);
+    if (s.year) parts.push("— " + s.year + ".");
+    var line = parts.filter(Boolean).join(" ");
+    if (s.doi) line += " doi:" + s.doi;
+    else if (s.url) line += " URL: " + s.url;
+    return line.replace(/\s+/g, " ").trim();
+  }
+
   function updateSelfReview(m, idx, done) {
     if (!m.selfReview) m.selfReview = { done: {}, note: "" };
     if (typeof idx === "number" && idx >= 0) m.selfReview.done[idx] = !!done;
@@ -313,7 +353,8 @@
     emptyModel: emptyModel, clone: clone,
     addClaim: addClaim, updateClaim: updateClaim, removeClaim: removeClaim,
     addSource: addSource, removeSource: removeSource, link: link,
-    updateNotes: updateNotes, noteFilled: noteFilled,
+    updateNotes: updateNotes, noteFilled: noteFilled, updateSource: updateSource,
+    parseCrossrefItem: parseCrossrefItem, gostLine: gostLine,
     updateSelfReview: updateSelfReview, setSelfReviewNote: setSelfReviewNote, selfReviewStats: selfReviewStats,
     updateOutcome: updateOutcome, outcomeReady: outcomeReady,
     audit: audit, completeness: completeness, sourceResolved: sourceResolved,
