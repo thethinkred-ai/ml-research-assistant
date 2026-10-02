@@ -21,7 +21,7 @@
     var m = bp.meta, q = m.topic;
     var L = [];
 
-    L.push("# Research brief: «" + q + "» (" + bp.kindLabel + ")");
+    L.push("# Исследовательский бриф: «" + q + "» (" + bp.kindLabel + ")");
     L.push("");
     L.push("> Сгенерировано «Методологическим ассистентом» (каркас по В. С. Безруковой, методология —");
     L.push("> ортодоксальный марксизм-ленинизм). Целевая среда — OpenResearch (alphaXiv): local-first");

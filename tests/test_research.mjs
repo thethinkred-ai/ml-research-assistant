@@ -13,7 +13,7 @@ const bp = E.buildBlueprint({ topic: "Отчуждение труда в сфе�
 const brief = R.buildResearchBrief(bp);
 
 // 1) самодостаточность: методология (системный промпт) встроена целиком
-ok(brief.startsWith("# Research brief:"), "бриф: заголовок");
+ok(brief.startsWith("# Исследовательский бриф:"), "бриф: заголовок");
 ok(brief.includes(P.SYSTEM), "бриф: системный промпт МЛ-методологии встроен");
 ok(brief.includes("OpenResearch"), "бриф: целевая среда названа");
 

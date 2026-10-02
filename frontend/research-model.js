@@ -272,7 +272,7 @@
   function toMarkdown(m) {
     if (!m.claims.length && !m.sources.length && !m.selfReview && !m.outcome) return "";
     var L = [];
-    L.push("## Реестр утверждений (Claim Ledger)");
+    L.push("## Реестр утверждений");
     L.push("");
     if (!m.claims.length) {
       L.push("_(утверждений не зафиксировано)_");
@@ -293,7 +293,7 @@
       }
     }
     L.push("");
-    L.push("## Источники (Source Manager)");
+    L.push("## Источники");
     L.push("");
     if (!m.sources.length) {
       L.push("_(источники не зафиксированы)_");

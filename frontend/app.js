@@ -1,6 +1,6 @@
 /* app.js — логика интерфейса: форма → каркас → вкладки «Каркас»/«Утверждения»/«Черновик»,
-   конструктор гипотезы и новизны, реестр утверждений (Claim Ledger) с локальным линтером,
-   исследовательские режимы LLM (Explore/Verify/Compare/Critic/экспертиза), экспорт, шаринг,
+   конструктор гипотезы и новизны, реестр утверждений с локальным линтером,
+   исследовательские режимы LLM (обзор, проверка, сравнение, критика, экспертиза), экспорт, шаринг,
    развёртывание со статусом, отменой и дозапуском. */
 (function () {
   "use strict";
@@ -228,7 +228,7 @@
         return '<li>' + mark + ' <b>' + esc(i.link) + '</b> — ' + esc(i.msg) + '</li>';
       }).join('') + '</ul></div>';
     h += '<h2 class="sec">Исследовательские вопросы (черновик — уточните)</h2>' +
-      '<div class="kv"><p class="muted">Вопросы — до готового аппарата: ответ на них и рождает противоречие, гипотезу, задачи. Кнопка «Explore» на вкладке «Утверждения» поможет.</p>' +
+      '<div class="kv"><p class="muted">Вопросы — до готового аппарата: ответ на них и рождает противоречие, гипотезу, задачи. Кнопка «Обзор» на вкладке «Утверждения» поможет.</p>' +
       '<textarea id="questions" rows="' + Math.max(4, bp.questions.length) + '" spellcheck="false">' + esc(bp.questions.join("\n")) + '</textarea>' +
       '<p class="muted">Правки применяются при следующем «Построить каркас» и попадают в промпты и research-бриф.</p></div>';
     h += bookTip("Актуальность");
@@ -338,7 +338,7 @@
       '<div class="btns"><button class="ghost" id="dl-orx" style="flex:none">Скачать бриф RESEARCH_BRIEF.md</button></div></details>';
   }
 
-  // ---------- вкладка «Утверждения»: Claim Ledger + Source Manager + линтер ----------
+  // ---------- вкладка «Утверждения»: реестр утверждений, источники и линтер ----------
 
   function loadModel() {
     try { return M.deserialize(localStorage.getItem("ml_model_v1")); }
@@ -398,12 +398,12 @@
 
     // Режимы исследования (LLM)
     h += '<div class="btns" style="margin-bottom:6px">' +
-      '<button class="ghost" id="mode-explore">Explore — карта темы</button>' +
-      '<button class="ghost" id="mode-compare">Compare — матрица подходов</button>' +
+      '<button class="ghost" id="mode-explore">Обзор — карта темы</button>' +
+      '<button class="ghost" id="mode-compare">Сравнение — матрица подходов</button>' +
       '</div>';
 
     // Источники
-    h += '<h2 class="sec">Источники (Source Manager)</h2>';
+    h += '<h2 class="sec">Источники (менеджер источников)</h2>';
     if (mod.sources.length) {
       h += '<ol>' + mod.sources.map(function (s) {
         return '<li><b>' + esc(s.id) + '</b>. ' + esc([s.author, s.title, s.year ? "(" + s.year + ")" : ""].filter(Boolean).join(" ")) +
@@ -446,7 +446,7 @@
     }
 
     // Утверждения
-    h += '<h2 class="sec">Утверждения (Claim Ledger)</h2>';
+    h += '<h2 class="sec">Утверждения (реестр)</h2>';
     if (mod.claims.length) {
       mod.claims.forEach(function (c) {
         h += '<div class="sec-edit" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px">' +
@@ -465,7 +465,7 @@
             return '<label style="font-size:12px"><input type="checkbox" data-link="' + esc(c.id) + ':' + esc(s.id) + '"' +
               (c.sourceIds.indexOf(s.id) >= 0 ? " checked" : "") + ' /> ' + esc(s.id) + '</label>';
           }).join('') + (mod.sources.length ? "" : '<span class="muted">источников нет — добавьте выше</span>') + '</div>' +
-          '<button class="ghost" data-verify="' + esc(c.id) + '" style="flex:none;padding:5px 10px;font-size:12.5px">Verify</button>' +
+          '<button class="ghost" data-verify="' + esc(c.id) + '" style="flex:none;padding:5px 10px;font-size:12.5px">Проверить</button>' +
           '<button class="ghost" data-delclaim="' + esc(c.id) + '" style="flex:none;padding:5px 10px;font-size:12.5px">✕</button>' +
           '</div></div>';
       });
@@ -692,7 +692,7 @@
   function renderVersions() {
     var vs = listVersions();
     var h = '<h2 class="sec">Версии исследования</h2><div class="kv">' +
-      '<p class="muted">Снимок всего состояния (форма, аппарат, реестр, черновик). Автоверсия создаётся перед Writer→Critic→Revision, чтобы любую правку можно было откатить.</p>' +
+      '<p class="muted">Снимок всего состояния (форма, аппарат, реестр, черновик). Автоверсия создаётся перед пайплайном «Критика→Правка», чтобы любую правку можно было откатить.</p>' +
       '<div class="btns"><button class="ghost" id="ver_add" style="flex:none">Зафиксировать версию (v0.' + (vs.length + 1) + ')</button>' +
       (vs.length ? '<button class="ghost" id="ver_chlog" style="flex:none">Скачать changelog .md</button>' : '') + '</div>';
     if (vs.length) {
@@ -922,9 +922,9 @@
     });
     h += '<details><summary>Предпросмотр черновика</summary><div class="preview" id="draft-preview"></div></details>';
     h += '<div class="btns" style="margin-top:10px">' +
-      '<button class="ghost" id="mode-critic">Critic — критика текста</button>' +
+      '<button class="ghost" id="mode-critic">Критика текста</button>' +
       '<button class="ghost" id="mode-marx">Марксистская экспертиза категорий</button>' +
-      '<button class="ghost" id="pipeline">Доработать черновик (Critic→Revision)</button></div>';
+      '<button class="ghost" id="pipeline">Доработать черновик (Критика→Правка)</button></div>';
     h += '<p class="muted" id="pipeline-hint" style="margin-top:0">Пайплайн прогоняет каждую секцию через критику и правку; перед стартом создаётся автоверсия — откат в «Версиях исследования».</p>';
     h += '<div id="draft-mode-result"></div>';
     var n = emptySections();
@@ -964,7 +964,7 @@
   // Перед стартом — автоверсия (откат в «Версиях исследования»).
   function runPipeline() {
     if (!state.sections || !state.tasks) { alert("Сначала разверните черновик через модель."); return; }
-    addVersion("авто: перед Critic→Revision");
+    addVersion("авто: перед Критика→Правка");
     if (state.pipeCtrl) { try { state.pipeCtrl.abort(); } catch (e) { /* ignore */ } }
     var ctrl = (typeof AbortController === "function") ? new AbortController() : null;
     state.pipeCtrl = ctrl;
