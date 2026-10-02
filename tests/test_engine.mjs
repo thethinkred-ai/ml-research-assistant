@@ -123,10 +123,43 @@ ok(!/впервые.*систематически раскрыт/.test(E.toMarkd
 ok(hyp.novelty.includes("Новизна не заявляется автоматически") && hyp.novelty.includes("новое понятие"), "новизна: чеклист типов");
 ok(!hyp.noveltyReady, "новизна без основания не готова");
 const novFull = E.buildBlueprint({ topic: "Влияние X на Y", kind: "kursovaya",
-  noveltyTypes: ["explanation", "model"], noveltyBasis: "отличие от Иванова 2020 в механизме" });
+  noveltyTypes: ["explanation", "model"], noveltyBasis: "отличие от Иванова 2020 в механизме",
+  noveltyWhat: "новая модель связи X→Y", noveltyCheckSources: "Иванов 2020; Петров 2023",
+  noveltyConfirmation: "эксперимент подтвердит модель" });
 ok(novFull.novelty.includes("новое объяснение") && novFull.novelty.includes("Иванова 2020"), "новизна: типы и основание подставлены");
-ok(novFull.noveltyReady, "новизна с основанием готова");
+ok(/Предполагаемая новизна/.test(novFull.novelty) && novFull.novelty.includes("новая модель связи"), "новизна: формулировка «предполагаемая», что нового подставлено");
+ok(novFull.novelty.includes("Иванов 2020") && novFull.novelty.includes("эксперимент подтвердит"), "новизна: источники сверки и критерий подтверждения");
+ok(novFull.noveltyReady, "новизна готова: что нового + основание");
 ok(Object.keys(E.NOVELTY_TYPES).length === 6, "6 типов новизны");
+
+// --- v1.4: «Выявить противоречие» — из материала, а не шаблон (рецензия п. 8)
+const rsEmpty = E.buildBlueprint({ topic: "Влияние X на Y", kind: "kursovaya", hasEmpirical: true });
+ok(rsEmpty.contradictionReady === false && rsEmpty.contradiction.includes("Шаблон"), "противоречие без материала помечено как шаблон");
+const rsFull = E.buildBlueprint({ topic: "Влияние X на Y", kind: "kursovaya",
+  rsRequired: "госзаказ на цифровую школу и работающие отдельные тренажёры",
+  rsObstacle: "нет методики, связывающей тренажёры в систему",
+  rsGap: "учителя используют тренажёры фрагментарно",
+  strongSide: "отдельные тренажёры доказали эффективность",
+  weakSide: "отсутствие системной методики внедрения" });
+ok(rsFull.contradictionReady === true, "противоречие: материал задан");
+ok(rsFull.contradiction.includes("госзаказ на цифровую школу") && rsFull.contradiction.includes("Слабое звено"), "противоречие из материала со звеньями");
+ok(!rsFull.contradiction.includes("Шаблон"), "материальное противоречие не помечено шаблоном");
+
+// --- v1.4: «Проверить аппарат» — связи по гл. 2 (рецензия п. 13)
+ok(rsEmpty.apparatusCheck.items.length >= 7, "аппарат: 7+ связей проверяется");
+ok(rsEmpty.apparatusCheck.warns >= 2, "пустые конструкторы дают предупреждения");
+const rsWarn = rsEmpty.apparatusCheck.items.filter(i => i.link === "Актуальность → противоречие")[0];
+ok(rsWarn.st === "warn", "шаблонное противоречие → warn");
+const rsOk = rsFull.apparatusCheck.items.filter(i => i.link === "Актуальность → противоречие")[0];
+ok(rsOk.st === "ok", "материальное противоречие → ok");
+ok(rsFull.apparatusCheck.items.filter(i => i.st === "err").length === 0, "нет ошибок у собранного аппарата");
+ok(E.toMarkdown(rsFull).includes("Самопроверка аппарата"), "самопроверка аппарата в markdown");
+
+// --- v1.4: критерии качества гл. 10 (рецензия п. 15)
+ok(E.QUALITY_CRITERIA.referat.length < E.QUALITY_CRITERIA.kursovaya.length, "критерии растут от реферата к курсовой");
+ok(E.QUALITY_CRITERIA.kursovaya.length < E.QUALITY_CRITERIA.diplom.length, "критерии растут от курсовой к диплому");
+ok(E.QUALITY_CRITERIA.diplom.some(c => /программа эксперимента/.test(c)), "диплом: программа эксперимента");
+ok(E.QUALITY_CRITERIA.referat.every(c => !/эксперимент/.test(c)), "реферат: без экспериментальных критериев");
 
 // --- V1.2: неизвестная дисциплина → общий профиль, не педагогика (рецензия п. 13)
 const unknown = E.buildBlueprint({ topic: "Прагматика заголовков в СМИ", field: "лингвистика" });

@@ -86,10 +86,67 @@
       type: String(s.type || "paper").trim(),
       url: String(s.url || "").trim(),
       doi: String(s.doi || "").trim(),
-      reliability: ["high", "medium", "low"].indexOf(s.reliability) >= 0 ? s.reliability : "medium"
+      reliability: ["high", "medium", "low"].indexOf(s.reliability) >= 0 ? s.reliability : "medium",
+      // Конспект источника (гл. 4 Безруковой): понятия, положения, тезисы, факты,
+      // гипотезы автора, выводы, цитаты, замечания + связи с задачами и параграфами.
+      notes: {
+        concepts: "", positions: "", theses: "", facts: "", authorHypotheses: "",
+        conclusions: "", quotes: "", remarks: "", tasks: "", sections: ""
+      }
     };
     m.sources.push(n);
     return n;
+  }
+
+  var NOTE_FIELDS = ["concepts", "positions", "theses", "facts", "authorHypotheses",
+    "conclusions", "quotes", "remarks", "tasks", "sections"];
+
+  function updateNotes(m, id, patch) {
+    var s = m.sources.filter(function (x) { return x.id === id; })[0];
+    if (!s) return null;
+    if (!s.notes) s.notes = {};
+    NOTE_FIELDS.forEach(function (k) {
+      if (patch && typeof patch[k] === "string") s.notes[k] = patch[k];
+    });
+    return s;
+  }
+
+  function noteFilled(s) {
+    if (!s.notes) return false;
+    return NOTE_FIELDS.slice(0, 8).some(function (k) { return (s.notes[k] || "").trim().length > 0; });
+  }
+
+  function updateSelfReview(m, idx, done) {
+    if (!m.selfReview) m.selfReview = { done: {}, note: "" };
+    if (typeof idx === "number" && idx >= 0) m.selfReview.done[idx] = !!done;
+    return m.selfReview;
+  }
+
+  function setSelfReviewNote(m, note) {
+    if (!m.selfReview) m.selfReview = { done: {}, note: "" };
+    m.selfReview.note = String(note || "");
+    return m.selfReview;
+  }
+
+  function selfReviewStats(m, total) {
+    var sr = m.selfReview || { done: {}, note: "" };
+    var done = 0;
+    for (var i = 0; i < (total || 0); i++) if (sr.done[i]) done++;
+    return { done: done, total: total || 0, note: sr.note };
+  }
+
+  // Прогноз → результат (по Безруковой: новизна/значимость прогнозируются на старте
+  // и сопоставляются с фактическими результатами после исследования).
+  function updateOutcome(m, patch) {
+    if (!m.outcome) m.outcome = { noveltyActual: "", significanceActual: "", comparison: "" };
+    ["noveltyActual", "significanceActual", "comparison"].forEach(function (k) {
+      if (patch && typeof patch[k] === "string") m.outcome[k] = patch[k];
+    });
+    return m.outcome;
+  }
+
+  function outcomeReady(m) {
+    return !!(m.outcome && (m.outcome.noveltyActual.trim() || m.outcome.significanceActual.trim()));
   }
 
   function removeSource(m, id) {
@@ -134,6 +191,7 @@
         if (c.status === "disputed") a.disputed.push(c);
       }
     });
+    a.sourcesWithNotes = m.sources.filter(noteFilled).length;
     a.coverage = a.total ? Math.round((a.withSource / a.total) * 100) : null;
     return a;
   }
@@ -145,12 +203,19 @@
     var items = [];
     items.push({ name: "Тема и аппарат исследования", done: !!ctx.topicReady });
     if (ctx.hasEmpirical) items.push({ name: "Гипотеза собрана (без плейсхолдеров)", done: !!ctx.hypothesisReady });
-    items.push({ name: "Новизна: указано основание", done: !!ctx.noveltyReady });
+    if (ctx.contradictionReady != null) items.push({ name: "Противоречие из материала (разрыв и звенья)", done: !!ctx.contradictionReady });
+    items.push({ name: "Новизна: прогноз с основанием", done: !!ctx.noveltyReady });
     items.push({ name: "Вопросы исследования уточнены", done: !!ctx.questionsReady });
     items.push({ name: "Источников ≥ 3", done: m.sources.length >= 3 });
+    items.push({ name: "Конспект ≥ 2 источников", done: m.sources.filter(noteFilled).length >= 2 });
     items.push({ name: "Утверждений ≥ 3", done: m.claims.length >= 3 });
     var aud = audit(m);
     items.push({ name: "≥ 50% утверждений с источником", done: aud.total > 0 && aud.coverage >= 50 });
+    if (ctx.selfReviewTotal) {
+      var sr = selfReviewStats(m, ctx.selfReviewTotal);
+      items.push({ name: "Самоэкспертиза: критерии пройдены", done: sr.done >= sr.total });
+    }
+    if (ctx.outcomeExpected) items.push({ name: "Фактическая новизна/значимость зафиксированы", done: outcomeReady(m) });
     if (ctx.draftRatio != null) items.push({ name: "Черновик развёрнут", done: ctx.draftRatio >= 0.5 });
     var done = items.filter(function (i) { return i.done; }).length;
     return { percent: Math.round((done / items.length) * 100), items: items };
@@ -165,7 +230,7 @@
 
   // Реестр в Markdown — для экспорта и research-брифа.
   function toMarkdown(m) {
-    if (!m.claims.length && !m.sources.length) return "";
+    if (!m.claims.length && !m.sources.length && !m.selfReview && !m.outcome) return "";
     var L = [];
     L.push("## Реестр утверждений (Claim Ledger)");
     L.push("");
@@ -198,6 +263,39 @@
     L.push("");
     L.push("> Правило: `[источник]` — временный статус. Источник допускается в текст, когда его " +
       "существование резолвится (DOI/URL), а утверждение связано с ним в реестре.");
+
+    var noted = m.sources.filter(noteFilled);
+    if (noted.length) {
+      L.push("");
+      L.push("## Конспекты источников (гл. 4 Безруковой)");
+      noted.forEach(function (s) {
+        L.push("");
+        L.push("### " + s.id + ". " + s.title);
+        var labels = { concepts: "Основные понятия", positions: "Основные положения", theses: "Тезисы",
+          facts: "Факты", authorHypotheses: "Гипотезы автора", conclusions: "Выводы",
+          quotes: "Цитаты", remarks: "Мои замечания", tasks: "Связь с задачами", sections: "Связь с параграфами" };
+        NOTE_FIELDS.forEach(function (k) {
+          if ((s.notes[k] || "").trim()) L.push("- **" + labels[k] + ":** " + s.notes[k]);
+        });
+      });
+    }
+
+    if (m.selfReview && (Object.keys(m.selfReview.done).length || m.selfReview.note)) {
+      L.push("");
+      L.push("## Самоэкспертиза (гл. 10 Безруковой)");
+      Object.keys(m.selfReview.done).forEach(function (i) {
+        L.push("- " + (m.selfReview.done[i] ? "✅" : "⬜") + " критерий №" + (Number(i) + 1));
+      });
+      if (m.selfReview.note) L.push("- Заметки: " + m.selfReview.note);
+    }
+
+    if (m.outcome && (m.outcome.noveltyActual || m.outcome.significanceActual || m.outcome.comparison)) {
+      L.push("");
+      L.push("## Новизна и значимость: прогноз → результат");
+      if (m.outcome.noveltyActual) L.push("- **Фактическая новизна:** " + m.outcome.noveltyActual);
+      if (m.outcome.significanceActual) L.push("- **Фактическая значимость:** " + m.outcome.significanceActual);
+      if (m.outcome.comparison) L.push("- **Сопоставление с прогнозом:** " + m.outcome.comparison);
+    }
     return L.join("\n");
   }
 
@@ -211,10 +309,13 @@
   }
 
   return {
-    CLAIM_TYPES: CLAIM_TYPES, STATUSES: STATUSES,
+    CLAIM_TYPES: CLAIM_TYPES, STATUSES: STATUSES, NOTE_FIELDS: NOTE_FIELDS,
     emptyModel: emptyModel, clone: clone,
     addClaim: addClaim, updateClaim: updateClaim, removeClaim: removeClaim,
     addSource: addSource, removeSource: removeSource, link: link,
+    updateNotes: updateNotes, noteFilled: noteFilled,
+    updateSelfReview: updateSelfReview, setSelfReviewNote: setSelfReviewNote, selfReviewStats: selfReviewStats,
+    updateOutcome: updateOutcome, outcomeReady: outcomeReady,
     audit: audit, completeness: completeness, sourceResolved: sourceResolved,
     toMarkdown: toMarkdown, serialize: serialize, deserialize: deserialize
   };

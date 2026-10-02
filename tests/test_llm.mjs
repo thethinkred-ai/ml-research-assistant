@@ -32,6 +32,12 @@ const cr = P.critiquePrompt("Текст для критики.", bp);
 ok(/режим Critic/.test(cr) && /корреляции и причинности/.test(cr) && cr.includes("Текст для критики."), "critic: таксономия ошибок");
 const ma = P.marxistAuditPrompt("Текст.", bp);
 ok(/категориальную экспертизу/.test(ma) && /трудовой теории стоимости/.test(ma), "марксистская экспертиза");
+
+// 1c) v1.4: подсказка противоречия и сопоставление прогноза/результата
+const ch = P.contradictionHintPrompt(bp);
+ok(/заказ/i.test(ch) && /слабое звено/.test(ch) && ch.includes("Отчуждение труда"), "подсказка противоречия: заказ→звенья");
+const oc = P.outcomeComparePrompt(bp, { noveltyActual: "модель подтвердилась", significanceActual: "" });
+ok(/ПРОГНОЗ НОВИЗНЫ/.test(oc) && oc.includes("модель подтвердилась") && /без слова «впервые»/.test(oc), "сопоставление прогноз/результат");
 // автоновизны больше нет в задачах без основания
 const bpNoNov = E.buildBlueprint({ topic: "Т", kind: "referat" });
 const tasksNoNov = P.buildTasks(bpNoNov, 100);

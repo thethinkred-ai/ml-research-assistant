@@ -143,9 +143,19 @@
       hypY: (input.hypY || "").trim(),
       hypM: (input.hypM || "").trim(),
       hypC: (input.hypC || "").trim(),
+      // «Выявить противоречие» (рецензия v1.4, п. 8): противоречие из материала,
+      // а не из шаблона — что требуется, что препятствует, где разрыв, звенья.
+      rsRequired: (input.rsRequired || "").trim(),
+      rsObstacle: (input.rsObstacle || "").trim(),
+      rsGap: (input.rsGap || "").trim(),
+      strongSide: (input.strongSide || "").trim(),
+      weakSide: (input.weakSide || "").trim(),
       // Новизна — только с основанием автора (рецензия п. 8).
       noveltyTypes: Array.isArray(input.noveltyTypes) ? input.noveltyTypes.filter(function (t) { return NOVELTY_TYPES[t]; }) : [],
-      noveltyBasis: (input.noveltyBasis || "").trim()
+      noveltyBasis: (input.noveltyBasis || "").trim(),
+      noveltyWhat: (input.noveltyWhat || "").trim(),
+      noveltyCheckSources: (input.noveltyCheckSources || "").trim(),
+      noveltyConfirmation: (input.noveltyConfirmation || "").trim()
     };
   }
 
@@ -184,21 +194,33 @@
   }
 
   function contradiction(m, r) {
+    // Противоречие из материала (по гл. 2 Безруковой): заказ/теория/практика → несоответствие → звенья.
+    if (m.rsRequired && m.rsObstacle) {
+      return "противоречие между тем, что уже требуется и существует (" + m.rsRequired + "), и тем, что этому " +
+        "препятствует (" + m.rsObstacle + ")" +
+        (m.rsGap ? "; разрыв обнаружен: " + m.rsGap : "") +
+        ". Сильное звено (что уже работает): " + (m.strongSide || "[укажите — что в практике/теории состоялось]") +
+        ". Слабое звено (узкое место, на которое направлено исследование): " +
+        (m.weakSide || "[укажите — что именно не решено]") + ".";
+    }
     return pick(r, [
       function () {
         return "противоречие между объективной потребностью общественной практики в научно обоснованном " +
           "осмыслении темы «" + m.topic + "» и недостаточной разработанностью этого вопроса в существующей " +
           "теории и методике, а также между декларируемыми идеалистическими трактовками и реальными " +
-          "материальными условиями, определяющими содержание данного явления.";
+          "материальными условиями, определяющими содержание данного явления. [Шаблон: заполните «Выявить " +
+          "противоречие», чтобы оно выросло из конкретного разрыва — заказ/теория/практика.]";
       },
       function () {
         return "противоречие между назревшей общественной потребностью в научном осмыслении «" + m.topic +
           "» и фактическим уровнем разработки данной проблемы в теории и методике " + fld(m) +
           ", усугубляемое расхождением между идеалистическими схемами и материальной обусловленностью " +
-          "изучаемого явления.";
+          "изучаемого явления. [Шаблон: конкретизируйте разрыв в блоке «Выявить противоречие».]";
       }
     ])();
   }
+
+  function contradictionReady(m) { return !!(m.rsRequired && m.rsObstacle); }
 
   function problem(m, r) {
     return pick(r, [
@@ -279,16 +301,84 @@
       "предположение.";
   }
 
-  // Новизна — чеклист + основание. Никаких автоматических «впервые…» (рецензия п. 8).
+  // «Предполагаемая научная новизна» (по Безруковой: новизна устанавливается после
+  // сопоставления с уже известным, поэтому фиксируется прогноз с проверочными полями,
+  // а обоснование появляется после исследования — см. прогноз → результат).
   function noveltyBlock(m) {
     var types = m.noveltyTypes.map(function (t) { return NOVELTY_TYPES[t]; }).filter(Boolean);
     var head = types.length
-      ? "Заявляемая новизна (" + types.join("; ") + "): [сформулируйте отличие от существующих исследований.]"
+      ? "Предполагаемая новизна (" + types.join("; ") + "): " + (m.noveltyWhat || "[что предположительно нового — сформулируйте.]")
       : "Новизна не заявляется автоматически. Отметьте тип: " +
         Object.keys(NOVELTY_TYPES).map(function (t) { return "▢ " + NOVELTY_TYPES[t]; }).join(" · ") + ".";
-    return head + (m.noveltyBasis
-      ? " Основание автора: " + m.noveltyBasis + " Подтверждается сравнением с источниками: [что уже сделано в литературе и чем данная работа отличается — со ссылками.]"
-      : " Основание: [чем отличается от существующих работ — обязательная ссылка на подтверждённые источники.]");
+    return head +
+      " На основании чего предполагается: " + (m.noveltyBasis || "[…]") +
+      ". Источники, с которыми нужно сопоставить: " + (m.noveltyCheckSources || "[…]") +
+      ". Подтверждением будет считаться: " + (m.noveltyConfirmation || "[…]") + ".";
+  }
+
+  function noveltyReady(m) { return !!(m.noveltyBasis && m.noveltyWhat); }
+
+  // Критерии качества по гл. 10 Безруковой (самоэкспертиза — диагностический экран).
+  var QUALITY_CRITERIA = {
+    referat: [
+      "знание темы", "знание использованных источников", "владение понятийным аппаратом",
+      "знание нескольких концепций", "способность проектировать исследование",
+      "корректное цитирование", "логичность изложения"
+    ],
+    kursovaya: [
+      "знание темы", "знание использованных источников", "владение понятийным аппаратом",
+      "знание нескольких концепций", "способность проектировать исследование",
+      "обоснованность гипотезы", "адекватность методов предмету",
+      "корректное цитирование", "логичность изложения"
+    ],
+    diplom: [
+      "знание темы", "самостоятельный подбор и анализ источников", "владение понятийным аппаратом",
+      "знание нескольких концепций", "программа эксперимента", "доказательство гипотезы",
+      "корректное цитирование", "логичность мышления и изложения",
+      "оценка теоретической значимости", "оценка практической значимости"
+    ]
+  };
+
+  function sigWords(s) {
+    return String(s || "").toLowerCase().split(/[^а-яёa-z]+/i).filter(function (w) { return w.length > 5; });
+  }
+
+  // «Проверить аппарат» — детерминированная проверка связей научного аппарата
+  // (гл. 2 Безруковой: компоненты работают только как система). Без сети.
+  function checkApparatus(bp) {
+    var items = [];
+    function add(st, link, msg) { items.push({ st: st, link: link, msg: msg }); } // st: ok|warn|err
+    var m = bp.meta;
+
+    if (contradictionReady(m)) {
+      add("ok", "Актуальность → противоречие", "противоречие построено из материала: разрыв указан, звенья выделены");
+    } else {
+      add("warn", "Актуальность → противоречие", "противоречие пока шаблонное — заполните «Выявить противоречие», чтобы в нём был конкретный разрыв (заказ / теория / практика)");
+    }
+    add(/«|»|\?/.test(bp.problem) || /\?$/.test(bp.problem) ? "ok" : "warn",
+      "Противоречие → проблема",
+      /\?/.test(bp.problem.slice(-3)) ? "проблема сформулирована как вопрос" : "проблема не в вопросной форме");
+    add("ok", "Проблема → цель", "цель непосредственно продолжает проблему (раскрыть сущность и противоречия темы)");
+
+    var subjWords = sigWords(m.topic), hit = 0;
+    subjWords.forEach(function (w) { if (sigWords(bp.subject).indexOf(w) >= 0) hit++; });
+    add(hit >= 1 ? "ok" : "warn", "Предмет ↔ цель",
+      hit >= 1 ? "ключевые понятия темы присутствуют в предмете" : "ключевые понятия темы не просматриваются в предмете — проверьте формулировку");
+
+    add("ok", "Цель → задачи", "задачи уже цели, не повторяют её и ведут к ней (инвариант закреплён тестом)");
+    if (m.hasEmpirical) {
+      add(bp.hypothesisReady ? "ok" : "warn", "Гипотеза → методы",
+        bp.hypothesisReady ? "гипотеза собрана; среди методов есть эксперимент и статистика для её проверки"
+          : "гипотеза не собрана (конструктор) — без неё эмпирические методы не на что проверять");
+    } else {
+      add("ok", "Гипотеза → методы", "работа теоретическая — гипотеза не требуется, методы теоретические полны");
+    }
+    var conclNums = (bp.concl.match(/\d\) По задаче/g) || []).length;
+    add(conclNums === bp.tasks.length ? "ok" : "err", "Задачи → заключение",
+      conclNums === bp.tasks.length ? "каждая задача имеет строку итога в заключении (трассировка задача → результат)"
+        : "не все задачи отражены в заключении (" + conclNums + " из " + bp.tasks.length + ")");
+    return { items: items, errs: items.filter(function (i) { return i.st === "err"; }).length,
+             warns: items.filter(function (i) { return i.st === "warn"; }).length };
   }
 
   // Исследовательские вопросы — черновики для уточнения автором (рецензия п. 1–2:
@@ -413,7 +503,8 @@
     });
     L.push("");
     if (bp.hypothesis) L.push("Гипотеза исследования [подтверждена / частично подтверждена / уточнена]: [на каких данных и в чём именно.]");
-    L.push("Научная новизна: " + bp.novelty);
+    L.push("Обоснование научной новизны (прогноз → результат): прогноз был — " +
+      (m.noveltyWhat || "[не сформулирован]") + "; фактический итог — [что подтвердилось, что нет и на каких источниках/данных.]");
     L.push("Практическая значимость: " + bp.significance);    L.push("Перспективы дальнейшего исследования: [укажите 1–2 направления, вытекающие из данной проблематики, — смежная область, иной масштаб или период.]");
     return L.join("\n");
   }
@@ -497,6 +588,11 @@
       kindLabel: KINDS[m.kind].label,
       researchTypeLabel: RESEARCH_TYPES[m.researchType].label,
       contradiction: contradiction(m, r),
+      contradictionReady: contradictionReady(m),
+      researchSituation: {
+        required: m.rsRequired, obstacle: m.rsObstacle, gap: m.rsGap,
+        strong: m.strongSide, weak: m.weakSide
+      },
       actualnost: actualnost(m, p, r),
       problem: problem(m, r),
       object: "", subject: "",
@@ -508,7 +604,7 @@
       methods: methods(m, p),
       stages: stages(m),
       novelty: noveltyBlock(m),
-      noveltyReady: !!m.noveltyBasis,
+      noveltyReady: noveltyReady(m),
       significance: significance(m, p),
       structure: structure(m)
     };
@@ -516,6 +612,7 @@
     bp.intro = introTemplate(m, bp);
     bp.concl = conclTemplate(m, bp);
     bp.topicCheck = analyzeTopic(m);
+    bp.apparatusCheck = checkApparatus(bp);
     bp.literature = literature(m);
     bp.literatureLinks = literatureLinks(m);
     return bp;
@@ -563,7 +660,7 @@
     L.push("## Этапы исследования");
     bp.stages.forEach(function (s, i) { L.push((i + 1) + ". " + s); });
     L.push("");
-    L.push("## Научная новизна (заполняет автор)");
+    L.push("## Научная новизна (прогноз — заполняет автор)");
     L.push(bp.novelty);
     L.push("");
     L.push("**Практическая значимость:** " + bp.significance + ".");
@@ -595,6 +692,13 @@
     L.push("");
     L.push("Подобрать реальные источники по теме: " +
       bp.literatureLinks.map(function (l) { return "[" + l.label + "](" + l.url + ")"; }).join(" · "));
+    L.push("");
+    L.push("---");
+    L.push("");
+    L.push("## Самопроверка аппарата (по гл. 2 Безруковой)");
+    bp.apparatusCheck.items.forEach(function (i) {
+      L.push("- " + (i.st === "ok" ? "✅" : i.st === "warn" ? "⚠️" : "❌") + " **" + i.link + "** — " + i.msg);
+    });
     return L.join("\n");
   }
 
@@ -602,6 +706,7 @@
     buildBlueprint: buildBlueprint, toMarkdown: toMarkdown, KINDS: KINDS, PRESETS: PRESETS,
     presetFor: presetFor, literatureLinks: literatureLinks, suggestWords: suggestWords,
     GLOSSARY: GLOSSARY, analyzeTopic: analyzeTopic, RESEARCH_TYPES: RESEARCH_TYPES,
-    NOVELTY_TYPES: NOVELTY_TYPES, researchQuestions: researchQuestions
+    NOVELTY_TYPES: NOVELTY_TYPES, researchQuestions: researchQuestions,
+    QUALITY_CRITERIA: QUALITY_CRITERIA, checkApparatus: checkApparatus
   };
 });

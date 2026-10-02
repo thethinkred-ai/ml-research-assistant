@@ -58,6 +58,8 @@ ok(Object.keys(M.STATUSES).length === 5, "5 статусов");
 // 7) completeness — считается по фактам
 const mFull = M.emptyModel();
 ["a", "b", "c"].forEach(t => { const c = M.addClaim(mFull, { text: t }); M.link(mFull, c.id, M.addSource(mFull, { title: "s" + t, url: "https://x" }).id); });
+M.updateNotes(mFull, "SRC-001", { concepts: "a" });
+M.updateNotes(mFull, "SRC-002", { concepts: "b" });
 const done = M.completeness(mFull, { topicReady: true, hasEmpirical: true, hypothesisReady: true,
   noveltyReady: true, questionsReady: true, draftRatio: 0.9 });
 const none = M.completeness(M.emptyModel(), { topicReady: false, hasEmpirical: true, hypothesisReady: false,
@@ -83,6 +85,50 @@ const back = M.deserialize(ser);
 ok(back.claims.length === 1 && back.sources.length === 1, "round-trip");
 ok(M.deserialize("мусор").claims.length === 0, "битый JSON → пустая модель");
 ok(M.deserialize('{"claims":1}').claims.length === 0, "неверная форма → пустая модель");
+
+// 10) v1.4: конспект источника (гл. 4 Безруковой)
+const m3 = M.emptyModel();
+const s3 = M.addSource(m3, { title: "Маркс К. Капитал Т.1" });
+ok(M.noteFilled(s3) === false, "пустой конспект не засчитан");
+M.updateNotes(m3, s3.id, { concepts: "товар, абстрактный труд", conclusions: "двойственный характер труда", junk: "игнор" });
+ok(M.noteFilled(m3.sources[0]) === true, "конспект заполнен");
+ok(!m3.sources[0].notes.junk, "неизвестные поля конспекта отброшены");
+const aud3 = M.audit(m3);
+ok(aud3.sourcesWithNotes === 1, "аудит считает источники с конспектом");
+M.updateNotes(m3, s3.id, { concepts: "", conclusions: "" });
+ok(M.noteFilled(m3.sources[0]) === false, "очистка полей возвращает «пусто»");
+
+// 11) v1.4: самоэкспертиза (гл. 10)
+M.updateSelfReview(m3, 0, true); M.updateSelfReview(m3, 1, true);
+M.setSelfReviewNote(m3, "доработать выборку");
+ok(M.selfReviewStats(m3, 5).done === 2, "самоэкспертиза: 2 из 5");
+ok(M.selfReviewStats(m3, 5).note === "доработать выборку", "заметка сохранена");
+
+// 12) v1.4: прогноз → результат
+M.updateOutcome(m3, { noveltyActual: "модель подтвердилась", comparison: "частично" });
+ok(M.outcomeReady(m3) === true, "результат зафиксирован");
+M.updateOutcome(m3, { junk: "x" });
+ok(!m3.outcome.junk, "чужие поля отброшены");
+M.updateOutcome(m3, { noveltyActual: "", comparison: "" });
+ok(M.outcomeReady(m3) === false, "пустой результат → не готов");
+
+// 13) completeness с новыми пунктами
+const ctx = { topicReady: true, hasEmpirical: false, contradictionReady: true, noveltyReady: true,
+  questionsReady: true, selfReviewTotal: 2, outcomeExpected: true };
+const cAll = M.completeness(m3, ctx);
+ok(cAll.items.some(i => /Противоречие из материала/.test(i.name)), "пункт противоречия есть");
+ok(cAll.items.some(i => /Конспект/.test(i.name)), "пункт конспекта есть");
+ok(cAll.items.some(i => /Самоэкспертиза/.test(i.name)), "пункт самоэкспертизы есть");
+ok(cAll.items.some(i => /Фактическая новизна/.test(i.name)), "пункт прогноз→результат есть");
+
+// 14) markdown: конспект, самоэкспертиза, прогноз→результат
+M.updateNotes(m3, s3.id, { concepts: "товар; стоимость" });
+M.updateSelfReview(m3, 0, true);
+M.updateOutcome(m3, { noveltyActual: "подтверждено" });
+const md3 = M.toMarkdown(m3);
+ok(md3.includes("Конспекты источников") && md3.includes("Основные понятия:** товар; стоимость"), "md: конспект");
+ok(md3.includes("Самоэкспертиза") && md3.includes("✅"), "md: самоэкспертиза");
+ok(md3.includes("прогноз → результат") && md3.includes("подтверждено"), "md: прогноз→результат");
 
 console.log("\n==== MODEL RESULT: pass=" + pass + " fail=" + fail + " ====");
 process.exit(fail?1:0);

@@ -31,7 +31,8 @@
   // ---------- форма ----------
 
   var FORM_IDS = ["topic", "kind", "vol", "field", "rtype", "depth", "extra", "sources", "emp", "app",
-    "hyp_x", "hyp_y", "hyp_m", "hyp_c", "nov_basis"];
+    "hyp_x", "hyp_y", "hyp_m", "hyp_c", "nov_basis",
+    "rs_req", "rs_obs", "rs_gap", "rs_strong", "rs_weak", "nov_what", "nov_srcs", "nov_confirm"];
 
   function collect() {
     return {
@@ -41,9 +42,14 @@
       researchType: val("rtype"),
       hypX: val("hyp_x") || "", hypY: val("hyp_y") || "",
       hypM: val("hyp_m") || "", hypC: val("hyp_c") || "",
+      rsRequired: val("rs_req") || "", rsObstacle: val("rs_obs") || "",
+      rsGap: val("rs_gap") || "", strongSide: val("rs_strong") || "", weakSide: val("rs_weak") || "",
       noveltyTypes: Array.prototype.map.call(
         document.querySelectorAll("#nov-types input:checked"), function (el) { return el.value; }),
-      noveltyBasis: val("nov_basis") || ""
+      noveltyBasis: val("nov_basis") || "",
+      noveltyWhat: val("nov_what") || "",
+      noveltyCheckSources: val("nov_srcs") || "",
+      noveltyConfirmation: val("nov_confirm") || ""
     };
   }
 
@@ -211,12 +217,33 @@
     }
     h += '<h2 class="sec">Тема · ' + esc(bp.kindLabel) + '</h2>';
     h += '<div class="kv"><p><b>' + esc(m.topic) + '</b></p><p class="muted">Область: ' + esc(m.field || "общая") + ' · Объём: ~' + esc(String(m.volumePages)) + ' с. · Тип исследования: ' + esc(bp.researchTypeLabel) + ' · Профиль дисциплины: ' + esc(bp.preset) + '</p></div>';
+    h += '<div class="errbox" style="background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-fg)">' +
+      '<b>Проверка аппарата</b> (связи по гл. 2 Безруковой' +
+      (bp.apparatusCheck.errs ? ', ❌ ошибок: ' + bp.apparatusCheck.errs : '') +
+      (bp.apparatusCheck.warns ? ', ⚠️ предупреждений: ' + bp.apparatusCheck.warns : '') + '):<ul>' +
+      bp.apparatusCheck.items.map(function (i) {
+        var mark = i.st === "ok" ? "✅" : i.st === "warn" ? "⚠️" : "❌";
+        return '<li>' + mark + ' <b>' + esc(i.link) + '</b> — ' + esc(i.msg) + '</li>';
+      }).join('') + '</ul></div>';
     h += '<h2 class="sec">Исследовательские вопросы (черновик — уточните)</h2>' +
       '<div class="kv"><p class="muted">Вопросы — до готового аппарата: ответ на них и рождает противоречие, гипотезу, задачи. Кнопка «Explore» на вкладке «Утверждения» поможет.</p>' +
       '<textarea id="questions" rows="' + Math.max(4, bp.questions.length) + '" spellcheck="false">' + esc(bp.questions.join("\n")) + '</textarea>' +
       '<p class="muted">Правки применяются при следующем «Построить каркас» и попадают в промпты и research-бриф.</p></div>';
     h += bookTip("Актуальность");
-    h += '<h2 class="sec">Актуальность</h2><div class="kv"><p>' + esc(bp.actualnost) + '</p><p><b>Противоречие.</b> ' + esc(bp.contradiction) + '</p><p><b>Проблема.</b> ' + esc(bp.problem) + '</p></div>';
+    h += '<h2 class="sec">Актуальность</h2><div class="kv"><p>' + esc(bp.actualnost) + '</p>' +
+      '<p><b>Противоречие.</b> ' + esc(bp.contradiction) + '</p><p><b>Проблема.</b> ' + esc(bp.problem) + '</p></div>';
+    // «Выявить противоречие» — гл. 2 Безруковой: заказ/теория/практика → несоответствие → звенья
+    h += '<h2 class="sec">Выявить противоречие (из материала, а не шаблон)</h2><div class="kv">' +
+      '<p class="muted">Безрукова: противоречие вырастает из несоответствий между заказом, теорией и практикой; из него выделяется слабое звено. Заполните — и противоречие выше пересоберётся из вашего материала.</p>' +
+      '<textarea id="rs_req" rows="2" placeholder="Что уже требуется / существует (заказ, практика, работающие решения)">' + esc(m.rsRequired) + '</textarea>' +
+      '<textarea id="rs_obs" rows="2" placeholder="Что этому препятствует (в теории или на практике)">' + esc(m.rsObstacle) + '</textarea>' +
+      '<textarea id="rs_gap" rows="2" placeholder="Где именно обнаружен разрыв">' + esc(m.rsGap) + '</textarea>' +
+      '<div class="row"><textarea id="rs_strong" rows="2" placeholder="Сильное звено — что уже работает">' + esc(m.strongSide) + '</textarea>' +
+      '<textarea id="rs_weak" rows="2" placeholder="Слабое звено — узкое место исследования">' + esc(m.weakSide) + '</textarea></div>' +
+      '<div class="btns"><button class="ghost" id="rs_hint" style="flex:none">Подсказать разложение материала (LLM)</button></div>' +
+      '<div id="rs-hint-result"></div>' +
+      (bp.contradictionReady ? '<p class="muted">✅ Противоречие собрано из материала.</p>' : '<p class="muted">⚠ Противоречие пока шаблонное — нужны первые два поля.</p>') +
+      '</div>';
     h += bookTip("Объект и предмет");
     h += '<h2 class="sec">Объект и предмет</h2><div class="kv"><p><b>Объект:</b> ' + esc(bp.object) + '</p><p><b>Предмет:</b> ' + esc(bp.subject) + '</p></div>';
     h += bookTip("Цель и задачи");
@@ -236,14 +263,26 @@
     h += '<h2 class="sec">Методы</h2><div class="kv"><p><b>Теоретические:</b> ' + esc(bp.methods.theoretical.join('; ')) + '</p><p><b>Эмпирические:</b> ' + esc(bp.methods.empirical.join('; ')) + '</p></div>';
     h += bookTip("Этапы");
     h += '<h2 class="sec">Этапы</h2><ol>' + bp.stages.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ol>';
-    h += '<h2 class="sec">Научная новизна — заполняет автор</h2><div class="kv">' +
-      '<p class="muted">Новизна не генерируется автоматически: это заявляет автор и отвечает за неё. Отметьте тип, дайте основание — оно попадёт в промпты и research-бриф.</p>' +
+    h += '<h2 class="sec">Научная новизна — прогноз автора</h2><div class="kv">' +
+      '<p class="muted">Новизна не генерируется: по Безруковой она устанавливается после сопоставления с уже известным, поэтому фиксируется прогноз — что нового, на каком основании, с чем сверять, что считать подтверждением.</p>' +
       '<div class="checks" id="nov-types">' + Object.keys(E.NOVELTY_TYPES).map(function (t) {
         var on = m.noveltyTypes.indexOf(t) >= 0;
         return '<label><input type="checkbox" value="' + t + '"' + (on ? " checked" : "") + ' /> ' + esc(E.NOVELTY_TYPES[t]) + '</label>';
       }).join('') + '</div>' +
-      '<textarea id="nov_basis" placeholder="Основание новизны: чем отличается от существующих работ (со ссылками — их можно занести на вкладке «Утверждения»)" rows="3">' + esc(m.noveltyBasis) + '</textarea>' +
+      '<textarea id="nov_what" rows="2" placeholder="Что предположительно нового">' + esc(m.noveltyWhat) + '</textarea>' +
+      '<textarea id="nov_basis" rows="2" placeholder="На основании чего это предполагается">' + esc(m.noveltyBasis) + '</textarea>' +
+      '<input id="nov_srcs" type="text" placeholder="Источники, с которыми нужно сопоставить" value="' + esc(m.noveltyCheckSources) + '">' +
+      '<input id="nov_confirm" type="text" placeholder="Что будет считаться подтверждением" value="' + esc(m.noveltyConfirmation) + '">' +
       '<p class="kv"><b>Практическая значимость:</b> ' + esc(bp.significance) + '</p></div>';
+    // Прогноз → результат (принцип Безруковой: прогноз сверяется с фактическим итогом)
+    var oc = (state.model && state.model.outcome) || { noveltyActual: "", significanceActual: "", comparison: "" };
+    h += '<h2 class="sec">Новизна и значимость: прогноз → результат</h2><div class="kv">' +
+      '<p class="muted">После работы зафиксируйте фактический итог и сопоставьте с прогнозом — это и есть обоснование новизны (не декларация).</p>' +
+      '<textarea id="out_nov" rows="2" placeholder="Фактическая новизна — что подтвердилось из прогноза">' + esc(oc.noveltyActual) + '</textarea>' +
+      '<textarea id="out_sig" rows="2" placeholder="Фактическая практическая значимость">' + esc(oc.significanceActual) + '</textarea>' +
+      '<textarea id="out_cmp" rows="2" placeholder="Сопоставление с прогнозом (или попросите модель ниже)">' + esc(oc.comparison) + '</textarea>' +
+      '<div class="btns"><button class="ghost" id="out_btn" style="flex:none">Сопоставить прогноз и результат (LLM)</button></div>' +
+      '<div id="out-result"></div></div>';
     h += bookTip("Структура (план)");
     h += '<h2 class="sec">Структура (план)</h2><div class="kv"><p>' + esc(bp.structure.front) + '</p>';
     bp.structure.chapters.forEach(function (c) { h += '<p><b>' + esc(c.title) + '</b></p><ul>' + c.sub.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ul>'; });
@@ -272,6 +311,13 @@
       saveForm();
       updateCompleteness();
     });
+    var rh = $("rs_hint");
+    if (rh) rh.onclick = function () { runMode(P.contradictionHintPrompt(state.bp), "rs-hint-result"); };
+    var ob = $("out_btn");
+    if (ob) ob.onclick = function () {
+      var oc = (state.model && state.model.outcome) || {};
+      runMode(P.outcomeComparePrompt(state.bp, oc), "out-result");
+    };
     $("dl-orx").addEventListener("click", function () {
       download(safeFile(bp) + "_RESEARCH_BRIEF.md", R.buildResearchBrief(bp, state.model), "text/markdown;charset=utf-8");
     });
@@ -306,12 +352,16 @@
     if (state.sections && total) {
       state.tasks.forEach(function (t) { if (state.sections[t.key]) filled++; });
     }
+    var critTotal = state.bp ? (E.QUALITY_CRITERIA[state.bp.meta.kind] || []).length : 0;
     return {
       topicReady: !!state.bp && state.bp.meta.topic !== "«[укажите тему]»",
       hasEmpirical: !!state.bp && state.bp.meta.hasEmpirical,
       hypothesisReady: !!state.bp && state.bp.hypothesisReady,
+      contradictionReady: !!state.bp && state.bp.contradictionReady,
       noveltyReady: !!state.bp && state.bp.noveltyReady,
       questionsReady: state.questionsEdited,
+      selfReviewTotal: critTotal,
+      outcomeExpected: !!state.bp,
       draftRatio: total ? filled / total : null
     };
   }
@@ -335,7 +385,7 @@
     h += '<div class="errbox" style="background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-fg)">' +
       '<b>Аудит исследования:</b> утверждений ' + aud.total + ', с доказательством ' + aud.withSource +
       ', без ' + aud.withoutSource + (aud.coverage != null ? ' (покрытие ' + aud.coverage + '%)' : '') +
-      ' · источников ' + aud.sources + ', резолвятся ' + aud.sourcesResolved;
+      ' · источников ' + aud.sources + ', резолвятся ' + aud.sourcesResolved + ', с конспектом ' + aud.sourcesWithNotes;
     var warn = [];
     if (aud.unbackedCausal.length) warn.push('причинных без источника: ' + aud.unbackedCausal.map(function (c) { return c.id; }).join(", "));
     if (aud.unbackedQuant.length) warn.push('количественных без источника: ' + aud.unbackedQuant.map(function (c) { return c.id; }).join(", "));
@@ -372,6 +422,24 @@
       '<select id="src_rel"><option value="high">надёжность: высокая</option><option value="medium" selected>средняя</option><option value="low">низкая</option></select>' +
       '<button class="ghost" id="src_add" style="flex:none">Добавить источник</button></div>';
 
+    // Конспекты источников (гл. 4 Безруковой)
+    var NOTE_LABELS = { concepts: "Основные понятия", positions: "Основные положения", theses: "Тезисы",
+      facts: "Факты", authorHypotheses: "Гипотезы автора", conclusions: "Выводы",
+      quotes: "Цитаты (точные — со страницей)", remarks: "Мои замечания / критика",
+      tasks: "Связь с задачами (№)", sections: "Связь с параграфами" };
+    if (mod.sources.length) {
+      h += '<h2 class="sec">Конспекты источников (гл. 4)</h2>' +
+        '<p class="muted">Безрукова: конспект выделяет понятия, положения, тезисы, факты, гипотезы автора и выводы — и связывает их с задачами и параграфами вашей работы.</p>';
+      mod.sources.forEach(function (s) {
+        var marked = M.noteFilled(s) ? " ✏️" : "";
+        h += '<details class="srcnote"><summary>Конспект ' + esc(s.id) + ' — ' + esc(s.title.slice(0, 70)) + marked + '</summary>' +
+          Object.keys(NOTE_LABELS).map(function (k) {
+            var v = (s.notes && s.notes[k]) || "";
+            return '<textarea data-note="' + esc(s.id) + ':' + k + '" rows="2" placeholder="' + esc(NOTE_LABELS[k]) + '">' + esc(v) + '</textarea>';
+          }).join('') + '</details>';
+      });
+    }
+
     // Утверждения
     h += '<h2 class="sec">Утверждения (Claim Ledger)</h2>';
     if (mod.claims.length) {
@@ -405,6 +473,18 @@
       }).join('') + '</select>' +
       '<button class="ghost" id="clm_add" style="flex:none">Добавить</button></div>';
 
+    // Самоэкспертиза (гл. 10 Безруковой) — критерии качества для данного типа работы
+    var crit = state.bp ? (E.QUALITY_CRITERIA[state.bp.meta.kind] || []) : [];
+    if (crit.length) {
+      var sr = M.selfReviewStats(mod, crit.length);
+      h += '<h2 class="sec" id="sr-head">Самоэкспертиза (гл. 10) — ' + sr.done + '/' + crit.length + '</h2><div class="kv">' +
+        '<p class="muted">Критерии качества из книги. Отмечайте по мере выполнения — самоэкспертиза у Безруковой часть аппарата, а не формальность.</p>' +
+        '<div class="checks" id="sr-list">' + crit.map(function (c, i) {
+          return '<label><input type="checkbox" data-sr="' + i + '"' + (sr.done[i] ? " checked" : "") + ' /> ' + esc(c) + '</label>';
+        }).join('') + '</div>' +
+        '<textarea id="sr_note" rows="2" placeholder="Заметки самоэкспертизы: что доработать в первую очередь">' + esc(sr.note) + '</textarea></div>';
+    }
+
     h += '<details style="margin-top:14px"><summary>Реестр в Markdown (входит в экспорт и research-бриф)</summary><pre class="md">' +
       esc(M.toMarkdown(mod) || "_(пусто)_") + '</pre></details>';
     h += '<div id="mode-result"></div>';
@@ -434,11 +514,28 @@
 
     $("pane-claims").addEventListener("input", function (e) {
       var t = e.target;
+      if (t.tagName !== "TEXTAREA" && t.tagName !== "INPUT") return;
+      if (t.dataset.note) {
+        var np = t.dataset.note.split(":");
+        var patch = {}; patch[np[1]] = t.value;
+        M.updateNotes(mod, np[0], patch);
+        saveModel(); updateCompleteness();
+      }
+      if (t.id === "sr_note") { M.setSelfReviewNote(mod, t.value); saveModel(); }
       if (t.dataset.claimText) { M.updateClaim(mod, t.dataset.claimText, { text: t.value }); saveModel(); updateCompleteness(); }
       if (t.dataset.claimEv) { M.updateClaim(mod, t.dataset.claimEv, { evidence: t.value }); saveModel(); }
     });
     $("pane-claims").addEventListener("change", function (e) {
       var t = e.target;
+      if (t.dataset && t.dataset.sr !== undefined && t.dataset.sr !== "") {
+        M.updateSelfReview(mod, Number(t.dataset.sr), t.checked);
+        saveModel();
+        var crit = state.bp ? (E.QUALITY_CRITERIA[state.bp.meta.kind] || []) : [];
+        var sr = M.selfReviewStats(mod, crit.length);
+        var head = $("sr-head");
+        if (head) head.textContent = "Самоэкспертиза (гл. 10) — " + sr.done + "/" + crit.length;
+        updateCompleteness();
+      }
       if (t.dataset.claimType) { M.updateClaim(mod, t.dataset.claimType, { type: t.value }); saveModel(); renderClaims(); }
       if (t.dataset.claimStatus) { M.updateClaim(mod, t.dataset.claimStatus, { status: t.value }); saveModel(); renderClaims(); }
       if (t.dataset.link) {
@@ -744,12 +841,25 @@
   $("tab-claims").addEventListener("click", function () { setActiveTab("claims"); });
   $("tab-draft").addEventListener("click", function () { if (!$("tab-draft").disabled) setActiveTab("draft"); });
 
-  // Конструкторы гипотезы/новизны: применяются на «change» (blur) — перегенерируем каркас.
+  // Конструкторы (гипотеза/противоречие/новизна): применяются на «change» (blur).
   $("pane-bp").addEventListener("change", function (e) {
     var t = e.target;
     if (!t || !t.id) return;
-    if (t.id === "hyp_x" || t.id === "hyp_y" || t.id === "hyp_m" || t.id === "hyp_c" || t.id === "nov_basis") generate();
+    var regen = ["hyp_x", "hyp_y", "hyp_m", "hyp_c", "nov_basis", "nov_what", "nov_srcs", "nov_confirm",
+      "rs_req", "rs_obs", "rs_gap", "rs_strong", "rs_weak"];
+    if (regen.indexOf(t.id) >= 0) generate();
     if (t.closest && t.closest("#nov-types")) generate();
+  });
+  // Прогноз → результат пишется в модель без перегенерации.
+  $("pane-bp").addEventListener("input", function (e) {
+    var t = e.target;
+    if (!t || !t.id || ["out_nov", "out_sig", "out_cmp"].indexOf(t.id) < 0) return;
+    if (!state.model) state.model = loadModel();
+    M.updateOutcome(state.model, {
+      noveltyActual: val("out_nov"), significanceActual: val("out_sig"), comparison: val("out_cmp")
+    });
+    saveModel();
+    updateCompleteness();
   });
 
   // ---------- автозапуск: сохранённая форма, затем query-параметры (они важнее) ----------
