@@ -1,0 +1,41 @@
+# Публикация статики ассистента на thinkred.ru (FTP Hoster.by) через раннер GitHub Actions:
+# локальная сеть пользователя блокирует исходящие 21/22, раннер — нет.
+# Секреты репозитория: FTP_HOSTS (через запятую), FTP_USER, FTP_PASS — в логи не печатаются.
+# Загрузка только на upload, без удалений; перед перезаписью удалённая версия уходит в артефакт-бэкап.
+name: Site deploy (FTP)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - "scripts/ftp_deploy.py"
+      - ".github/workflows/site-deploy.yml"
+
+concurrency:
+  group: site-ftp
+  cancel-in-progress: false
+
+jobs:
+  ftp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Загрузка frontend/ на /assistant/
+        env:
+          FTP_HOSTS: ${{ secrets.FTP_HOSTS }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+        run: python scripts/ftp_deploy.py frontend /assistant
+      - name: Бэкап предыдущей версии (артефакт, 30 дней)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assistant-ftp-backup
+          path: backup/
+          retention-days: 30
+          if-no-files-found: ignore
