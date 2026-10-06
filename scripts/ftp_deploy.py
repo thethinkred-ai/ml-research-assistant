@@ -46,7 +46,7 @@ def connect():
             print(f"подключились: {host}")
             return ftp
         except Exception as e:
-            print(f"{host}: недоступен ({type(e).__name__})")
+            print(f"{host}: недоступен ({type(e).__name__}: {e})")
             last = e
     raise SystemExit(f"FTP недоступен ни на одном хосте: {type(last).__name__}")
 
