@@ -493,6 +493,9 @@
     h += '<details style="margin-top:14px"><summary>Реестр в Markdown (входит в экспорт и research-бриф)</summary><pre class="md">' +
       esc(M.toMarkdown(mod) || "_(пусто)_") + '</pre></details>';
     h += renderVersions();
+    h += '<div class="btns" style="margin-top:10px">' +
+      '<label class="ghost" style="flex:none;padding:8px 12px;cursor:pointer">Импорт реестра (JSON)<input id="model-import" type="file" accept=".json,application/json" style="display:none"></label>' +
+      '<button class="ghost" id="model-export" style="flex:none">Экспорт реестра (JSON)</button></div>';
     h += '<div id="mode-result"></div>';
     $("pane-claims").innerHTML = h;
     bindClaims();
@@ -517,6 +520,20 @@
     };
     $("mode-explore").onclick = function () { runMode(P.explorePrompt(state.bp)); };
     $("mode-compare").onclick = function () { runMode(P.comparePrompt(state.bp, window.prompt("Кого сравнить (через запятую)?", "Маркс, Вебер, современный автор") || "")); };
+    var imp = $("model-import");
+    if (imp) imp.onchange = function () {
+      var f = imp.files && imp.files[0];
+      if (!f) return;
+      var r = new FileReader();
+      r.onload = function () {
+        var m = M.deserialize(String(r.result));
+        if (!m.claims.length && !m.sources.length) { alert("В файле нет ни утверждений, ни источников — импорт отменён."); return; }
+        state.model = m;
+        saveModel();
+        renderClaims();
+      };
+      r.readAsText(f, "utf-8");
+    };
   }
 
   // Делегированные слушатели pane-claims — навешиваются ровно один раз (иначе каждый
@@ -566,6 +583,9 @@
       if (t.id === "ver_add") { addVersion("зафиксирована вручную"); renderClaims(); }
       if (t.id === "ver_chlog") {
         download(safeFile(state.bp) + "_versions.md", versionsChangelog(), "text/markdown;charset=utf-8");
+      }
+      if (t.id === "model-export") {
+        download(safeFile(state.bp) + "_реестр.json", M.serialize(state.model), "application/json;charset=utf-8");
       }
       if (t.dataset.delclaim) { M.removeClaim(state.model, t.dataset.delclaim); saveModel(); renderClaims(); }
       if (t.dataset.verify) {
